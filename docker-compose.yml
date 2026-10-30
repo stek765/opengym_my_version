@@ -1,0 +1,27 @@
+name: opengym
+
+services:
+  # Passkey auth + per-user data (Node, no framework).
+  api:
+    build: ./api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=3000            # internal port (nginx proxies here) — do not change
+      - DATA_DIR=/data
+    volumes:
+      - ./data:/data         # users, passkeys, per-user state, session secret — BACK THIS UP
+
+  # Builds the React frontend (multi-stage) and serves it, proxying /api → api
+  # Single origin for passkeys.
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    volumes:
+      - ./media/img:/usr/share/nginx/html/img:ro   # exercise pictures

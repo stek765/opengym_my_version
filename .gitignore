@@ -1,0 +1,29 @@
+# Exercise pictures — downloaded by scripts/fetch-media.sh, not part of the repo
+media/img/
+media/gif/
+
+# Runtime data — users, passkeys, per-user state, session secret
+data/
+
+# Local config
+.env
+
+# Build output / deps
+frontend/dist/
+node_modules/
+*.log
+.DS_Store
+
+# Local AI-assistant tooling — contributor's own setup, not part of the app
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
+graphify-out/
+node_modules/
+data/
+media/
+dist/
+.superpowers/
+.env
+.env.bak*
