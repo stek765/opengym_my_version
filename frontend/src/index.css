@@ -1,0 +1,392 @@
+/* Liquid-glass look: smooth multi-stop gradients, two slow-drifting colour blobs behind them, and
+   translucent glass panels with a bright top edge. Every colour lives in these tokens, per screen. */
+:root {
+  --grad: linear-gradient(180deg, #1c9585 0%, #17796b 8%, #115e53 17%, #0d453e 28%, #0b302c 40%, #0b201f 55%, #0f1515 75%, #141718 100%);
+  --blob1: rgba(94, 234, 212, .34); --blob2: rgba(45, 212, 191, .14);
+  --tint: rgba(16, 58, 54, .82); --ac-soft: rgba(45, 212, 191, .30);
+  --bottom: #141718; --top: #1c9585;   /* --top = first colour of the gradient: the status bar strip takes it */
+  --bg: transparent; --s1: rgba(255, 255, 255, .09); --s2: rgba(255, 255, 255, .14); --ln: rgba(255, 255, 255, .16);
+  --fg: #fff; --mu: rgba(255, 255, 255, .72); --fa: rgba(255, 255, 255, .35);
+  --ac: #2dd4bf; --up: #86efac; --dn: #fda4af; --sh: #141a1a; --shade: rgba(255, 255, 255, .05);
+  --hero: linear-gradient(165deg, #1fb5a3 0%, #0e6b62 55%, #0a4741 100%);
+  --raise: none;
+  --chipbg: rgba(0, 0, 0, .55);
+  --sel: #fff; --seltx: #06201f;
+  --actx: #04201d;   /* text on the accent */
+  --upbg: rgba(134, 239, 172, .2); --dnbg: rgba(253, 164, 175, .2); --nowbg: rgba(255, 255, 255, .12);
+  --sat: env(safe-area-inset-top); --sab: env(safe-area-inset-bottom);
+  /* Floating tab bar: 64px tall, lifted off the edges; content scrolls under it. */
+  --tab: 64px;
+  --gap: 0px;   /* set by lib/viewport.js: installed iOS app declared shorter than the screen */
+  --tabpad: max(calc(var(--sab) - 8px), 12px);
+  /* names the chart still uses */
+  --acc: var(--ac); --label-2: var(--mu); --label-3: var(--fa); --sep-op: var(--ln); --yellow: #eab308;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+/* The page itself never scrolls: #app does. A scrolling document is what made Safari move
+   its toolbars and drag the fixed tab bar up and down on every section change. */
+html, body { margin: 0; height: 100%; overflow: hidden; color: var(--fg); }
+/* The gradient is painted on a fixed layer that overshoots the screen at the bottom, over a solid
+   colour equal to the gradient's last stop. iOS ignores `background-attachment: fixed` and, in the
+   installed app, can size the page a bit short: the old setup then showed a cut-off band below. */
+html { background: var(--top); }
+html::before { content: ''; position: fixed; left: 0; right: 0; top: -2px; bottom: -120px; z-index: -2; pointer-events: none; background: var(--grad); }
+body { background: transparent; }
+body {
+  font: 16px/1.35 -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+input, textarea { font: inherit; color: inherit; }
+img { display: block; }
+
+#app {
+  position: fixed; inset: 0 0 calc(-1 * var(--gap)) 0;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: calc(var(--sat) + 18px) 16px calc(var(--tab) + var(--tabpad) + 24px);
+}
+#app.full { bottom: calc(-1 * var(--gap)); padding-bottom: calc(var(--sab) + 16px); }
+.narrow { max-width: 520px; margin: 0 auto; }
+
+/* ---- type ---- */
+.eb { font-size: 13px; color: var(--mu); }
+h1, .h1 { font-size: 32px; font-weight: 800; letter-spacing: -.025em; line-height: 1.05; margin: 2px 0 14px; }
+h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 26px 0 10px; }
+.big { font-size: 46px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+.big small { font-size: 17px; font-weight: 600; color: var(--mu); letter-spacing: 0; }
+.mu, .muted, .dim { color: var(--mu); } .fa { color: var(--fa); }
+.up { color: var(--up); font-weight: 700; } .dn { color: var(--dn); font-weight: 700; }
+.small { font-size: 13px; } .tiny { font-size: 11px; }
+
+/* ---- structure ---- */
+.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--ln); width: 100%; text-align: left; }
+.line .r { color: var(--mu); font-size: 14px; text-align: right; }
+.row { display: flex; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+.lnk { font-size: 14px; font-weight: 600; color: var(--mu); padding: 10px 0; }
+.lnk.on { color: var(--fg); }
+.sec { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 0 10px; }
+.sec h2 { margin: 0; }
+.sec button { color: var(--mu); font-size: 14px; font-weight: 600; }
+.sec .secbtn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--s1); color: var(--fg); }
+.sec .secbtn .icn { width: 15px; height: 15px; }
+.hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.hdr .logo { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.iconbtn { width: 36px; height: 36px; border-radius: 50%; background: var(--s1); display: inline-flex; align-items: center; justify-content: center; color: var(--mu); font-size: 18px; flex: none; }
+.iconbtn.sm { width: 32px; height: 32px; font-size: 16px; }
+.back { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+.back .iconbtn { width: 40px; height: 40px; color: var(--fg); font-size: 20px; }
+.panel { background: var(--s1); border-radius: 18px; padding: 16px; margin-top: 16px; box-shadow: var(--raise); }
+.panel .sec { margin: 0 0 14px; }
+.panel .sec h2 { display: flex; align-items: center; gap: 8px; }
+.panel .sec h2 .icn { width: 19px; height: 19px; color: var(--mu); }
+.panel .sec .secbtn { background: var(--s2); }
+.panel .week b { background: var(--s2); }
+.panel .pimg.free { background: var(--s2); }
+.card { background: var(--s1); border-radius: 16px; padding: 14px 16px; box-shadow: var(--raise); }
+.hscroll { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px; scrollbar-width: none; }
+.hscroll::-webkit-scrollbar { display: none; }
+.icn { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* pills: filters and tabs */
+.seg, .tabs { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 0 16px; scrollbar-width: none; }
+.seg::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+.seg button, .tabs button { flex: none; padding: 7px 14px; border-radius: 999px; background: var(--s1); color: var(--mu); font-size: 14px; font-weight: 600; }
+.seg button.on, .tabs button.on { background: var(--sel); color: var(--seltx); }
+.seg .seg-sel { display: none; }
+
+/* ---- controls ---- */
+.btn { display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; padding: 15px; border-radius: 14px; font-size: 17px; font-weight: 700; background: var(--s1); color: var(--fg); }
+.btn.primary { background: var(--ac); color: var(--actx); }
+.btn.white { background: #fff; color: #062a26; font-size: 19px; font-weight: 800; padding: 17px; }
+.btn.ghost, .btn.plain { background: var(--s1); color: var(--mu); border: 1px solid var(--ln); }
+.btn:disabled { opacity: .4; }
+.btn .icn { width: 18px; height: 18px; }
+.field, .input, .num { width: 100%; background: var(--s1); border: 1px solid var(--ln); border-radius: 12px; padding: 12px 14px; outline: none; }
+.field:focus, .input:focus { border-color: var(--ac); }
+.chk { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--ln); display: inline-flex; align-items: center; justify-content: center; color: transparent; flex: none; }
+.chk.on { background: var(--s2); border-color: var(--s2); color: var(--mu); }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--chipbg); color: #fff; }
+.pill { display: inline-block; font-weight: 800; font-size: 15px; padding: 5px 10px; border-radius: 999px; min-width: 58px; text-align: center; background: var(--s2); color: var(--mu); }
+.pill.up { background: var(--upbg); color: var(--up); } .pill.dn { background: var(--dnbg); color: var(--dn); }
+
+/* exercise pictures: white tiles, the library draws on white */
+.thumb { border-radius: 10px; background: #fff; object-fit: cover; flex: none; outline: 1px solid var(--ln); outline-offset: -1px; }
+.thumb.none { background: var(--s2); color: var(--mu); display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---- tab bar ---- */
+#tabbar { position: fixed; left: 14px; right: 14px; bottom: calc(var(--tabpad) - var(--gap)); z-index: 50; display: flex; gap: 4px; height: var(--tab); padding: 6px; border-radius: 26px; background: var(--tbbg); border: 1px solid var(--tbline); box-shadow: 0 10px 30px rgba(0, 0, 0, .3); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); max-width: 520px; margin: 0 auto; }
+#tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 20px; font-size: 11px; font-weight: 700; color: var(--tbtx); }
+#tabbar .icn { width: 23px; height: 23px; }
+#tabbar button.on { color: var(--tbontx); background: var(--tbon); }
+
+/* ---- sheets ---- */
+#modal-root { position: fixed; inset: 0 0 calc(-1 * var(--gap)) 0; z-index: 100; }
+.mback { position: fixed; inset: 0 0 calc(-1 * var(--gap)) 0; background: rgba(0, 0, 0, .55); }
+.sheet { position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--gap)); max-height: 90vh; overflow-y: auto; background: var(--sh); color: var(--fg); padding: 10px 18px calc(var(--sab) + 22px); border-radius: 20px 20px 0 0; }
+.grab { width: 36px; height: 4px; border-radius: 2px; background: var(--fa); margin: 0 auto 14px; }
+.center { position: fixed; left: 22px; right: 22px; top: 30%; background: var(--sh); padding: 22px; border-radius: 18px; }
+
+#toast { position: fixed; left: 50%; bottom: calc(var(--tab) + var(--tabpad) + 16px - var(--gap)); transform: translate(-50%, 20px); opacity: 0; transition: .2s; background: var(--fg); color: var(--bg); padding: 10px 16px; font-size: 14px; font-weight: 600; border-radius: 12px; z-index: 200; pointer-events: none; max-width: 88vw; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+.empty { text-align: center; color: var(--mu); padding: 60px 0; }
+
+/* ---- home ---- */
+.hero { border-radius: 18px; padding: 18px; background: var(--hero); color: #fff; box-shadow: 0 12px 30px rgba(75, 63, 214, .28); }
+.hero .chip { background: rgba(255, 255, 255, .14); }
+.hero h1 { font-size: 36px; margin: 12px 0 4px; }
+.hero .m { color: rgba(255, 255, 255, .72); font-size: 14px; }
+.hero .thumbs { display: flex; gap: 8px; margin: 16px 0; }
+.hero .btns { display: flex; gap: 10px; }
+.hero .btns .alt { flex: none; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border-radius: 14px; background: rgba(255, 255, 255, .14); font-weight: 700; font-size: 15px; }
+.hero .btns .alt .icn { width: 20px; height: 20px; }
+.week { display: flex; justify-content: space-between; }
+.week button:disabled { cursor: default; }
+.week button { text-align: center; font-size: 11px; color: var(--mu); width: 38px; }
+.week b { display: flex; margin: 6px auto 0; width: 32px; height: 32px; border-radius: 50%; align-items: center; justify-content: center; font-size: 13px; color: var(--fg); background: var(--s1); }
+.week .on b { background: var(--sel); color: var(--seltx); }
+.week .t b { box-shadow: inset 0 0 0 2px var(--fg); }
+.poster { width: 136px; flex: none; text-align: left; }
+.poster .pimg { height: 152px; border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 2px; background: var(--ln); position: relative; }
+.poster .pimg .thumb { width: 100%; height: 100%; border-radius: 0; }
+.poster .pimg.free { display: flex; align-items: center; justify-content: center; background: var(--s1); color: var(--mu); font-size: 34px; }
+.poster .chip { position: absolute; left: 8px; top: 8px; }
+.playb { position: absolute; right: 8px; bottom: 8px; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #1b1340; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+.playb .icn { width: 18px; height: 18px; margin-left: 2px; }
+.poster b { display: block; margin-top: 8px; font-size: 15px; }
+.poster small { color: var(--mu); font-size: 13px; }
+
+/* ---- workout session ---- */
+.s-hd { display: flex; align-items: center; gap: 12px; }
+.s-hd .t { flex: 1; min-width: 0; } .s-hd .t b { display: block; font-size: 16px; }
+.s-hd .t small { color: var(--mu); font-size: 13px; }
+.s-hd .clk { font-weight: 700; font-size: 17px; }
+.s-prog { height: 5px; border-radius: 3px; background: var(--s2); margin: 12px 0; overflow: hidden; }
+.s-prog i { display: block; height: 100%; background: var(--sel); border-radius: 3px; }
+/* the rest timer sits right under the sets of the exercise he is doing: it covers nothing */
+.rest { display: flex; align-items: center; gap: 12px; margin-top: 12px; background: var(--s2); border: 1px solid var(--ln); border-radius: 16px; padding: 10px 14px; }
+.rest .icn { width: 22px; height: 22px; color: var(--mu); }
+.rest b { font-size: 36px; font-weight: 800; letter-spacing: -.02em; line-height: 1; color: var(--ac); }
+.rest span { flex: 1; font-size: 14px; font-weight: 600; color: var(--mu); }
+.rest button { font-weight: 700; font-size: 15px; padding: 10px 16px; border-radius: 999px; background: var(--fg); color: #111; }
+.mini { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 4px; font-size: 15px; color: var(--mu); text-align: left; }
+.mini .grow { color: var(--fg); }
+.mini small { font-size: 13px; }
+.mini.done { opacity: .45; }
+.mini .ok { width: 20px; height: 20px; }
+.skipd { text-decoration: line-through; }
+.ex-open { background: var(--s1); box-shadow: var(--raise); border: 1px solid var(--ln); border-radius: 18px; overflow: hidden; margin: 6px 0; }
+.ex-open .pic { height: 118px; background: #fff; display: flex; justify-content: center; position: relative; }
+.ex-open .pic img { height: 118px; }
+.ex-open .pic.none { height: 46px; background: transparent; }
+.ex-open .pic .tag { position: absolute; left: 10px; bottom: 10px; }
+.ex-open .pic .cuebtn { position: absolute; right: 10px; bottom: 10px; }
+.ex-open .pic .icn { width: 13px; height: 13px; }
+.ex-open .body { padding: 12px 14px 14px; }
+.ex-open .name { font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.goal { color: var(--mu); font-size: 14px; margin-top: 4px; }
+.offer { margin-top: 12px; background: var(--s2); border-radius: 14px; padding: 12px; }
+.offer .q { font-size: 17px; font-weight: 600; }
+.offer .chips { display: flex; gap: 8px; margin-top: 10px; }
+.offer .chips button { flex: 1; padding: 10px 0; border-radius: 10px; background: var(--s1); font-weight: 700; }
+.offer .chips button.pref { background: var(--ac); color: var(--actx); }
+/* Every set row has the same size: a tick never moves the rows, so tapping the same spot
+   again undoes that same set instead of hitting the next one (bug of 23/10). */
+.sets { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.set { display: grid; grid-template-columns: 22px 1fr 1fr 56px; gap: 8px; align-items: center; }
+.set.reps { grid-template-columns: 22px 1fr 56px; }
+.set .i { color: var(--mu); font-size: 14px; font-weight: 700; text-align: center; }
+.set .v { display: flex; align-items: baseline; gap: 4px; height: 56px; border-radius: 12px; padding: 0 12px; background: var(--s2); font-size: 28px; font-weight: 800; letter-spacing: -.02em; text-align: left; color: var(--fg); }
+.set .v { align-items: center; }
+.set .v small { color: var(--mu); font-size: 13px; font-weight: 600; margin-top: 8px; }
+.set .v .up, .set .v .dn { font-size: 12px; margin-left: auto; }
+/* A tick is two states and nothing else: empty ring = to do, filled with a check = done.
+   Tapping changes only that row. No "current set" highlight, no dimming of the rows below:
+   those moved with every tap and looked like the app advancing by itself. */
+.set .chk { justify-self: center; width: 56px; height: 56px; border: 2px solid var(--mu); color: transparent; background: transparent; }
+.set .chk .icn { width: 26px; height: 26px; }
+.set.done .v { color: var(--mu); }
+.set.done .chk { background: var(--ac); border-color: var(--ac); color: var(--actx); }
+.acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.acts button { font-size: 13px; font-weight: 600; color: var(--mu); background: var(--s2); padding: 7px 12px; border-radius: 999px; }
+.cue { font-size: 15px; color: var(--fg); margin-top: 10px; white-space: pre-wrap; }
+.endacts { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.backto { background: var(--s2); margin-bottom: 10px; font-size: 13px; padding: 6px 12px; }
+.backto .icn { width: 14px; height: 14px; }
+.warm .name { font-size: 26px; }
+
+/* ---- number sheet ---- */
+.ns .t { text-align: center; font-size: 13px; color: var(--mu); }
+.ns .val { text-align: center; font-size: 56px; font-weight: 800; letter-spacing: -.03em; margin: 4px 0 8px; }
+.ns .chips { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+.ns .chips button { padding: 8px 12px; border-radius: 10px; background: var(--s2); font-weight: 700; font-size: 14px; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pad button { padding: 14px 0; font-size: 22px; font-weight: 600; border-radius: 12px; background: var(--s2); }
+.ns .two { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ---- progress ---- */
+.rec { width: 116px; flex: none; text-align: left; }
+.rec .pic { position: relative; }
+.rec .pic .thumb { width: 116px; height: 116px; border-radius: 14px; }
+.rec .pic .pill { position: absolute; right: 6px; top: 6px; min-width: 0; font-size: 12px; padding: 3px 7px; background: var(--up); color: #fff; }
+.rec b { display: block; margin-top: 7px; font-size: 17px; }
+.rec small { color: var(--mu); font-size: 12px; }
+.pick { display: block; width: 100%; text-align: left; background: var(--s1); border: 1px solid var(--ln); border-radius: 20px; padding: 12px 12px 14px; margin-bottom: 14px; }
+.pick.sug { border-color: var(--ac); box-shadow: 0 0 0 1px var(--ac); }
+.pick .pics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pick .pics .thumb { width: 100%; height: auto; aspect-ratio: 1; border-radius: 12px; }
+.pick b { font-size: 22px; letter-spacing: -.01em; }
+.pick .chip { background: var(--ac); color: var(--actx); }
+.pick.free { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px; border-style: dashed; background: transparent; }
+.chartcard { margin-bottom: 8px; }
+.prow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 10px; margin: 2px 0; border-radius: 14px; text-align: left; font-size: 16px; }
+.prow .v { color: var(--mu); font-size: 15px; font-weight: 600; }
+.prow.on { background: var(--s2); }
+.prow.on .v { color: var(--fg); }
+.grp { font-size: 13px; font-weight: 700; color: var(--mu); margin: 18px 0 2px; }
+.it { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border-bottom: 1px solid var(--ln); text-align: left; }
+.it .n { flex: 1; min-width: 0; } .it .n b { display: block; font-size: 16px; }
+.it .n small { color: var(--mu); font-size: 13px; }
+.spark { width: 54px; height: 24px; flex: none; }
+.st { width: 100%; border-collapse: collapse; margin-top: 14px; }
+.st th { font-size: 12px; font-weight: 700; text-align: center; padding: 6px 0; border-bottom: 1.5px solid var(--fg); }
+.st td { text-align: center; padding: 8px 0; border-bottom: 1px solid var(--ln); font-size: 18px; font-weight: 700; line-height: 1.05; }
+.st td small { display: block; font-size: 11px; font-weight: 500; color: var(--mu); }
+.st td:first-child, .st th:first-child { text-align: left; font-size: 13px; font-weight: 500; color: var(--mu); }
+.st th:nth-child(odd):not(:first-child), .st td:nth-child(odd):not(:first-child) { background: var(--shade); }
+.st.nd th:first-child { text-align: center; font-size: 12px; font-weight: 700; color: var(--fg); }
+.st.nd td:first-child { text-align: center; font-size: 18px; font-weight: 700; color: var(--fg); }
+
+/* ---- calendar ---- */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 6px; text-align: center; }
+.cal .h { font-size: 11px; color: var(--mu); padding-bottom: 4px; }
+.cal .d { height: 54px; font-size: 14px; color: var(--fa); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 2px; }
+.cal .d span { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+.cal .d.w { color: var(--fg); font-weight: 700; }
+.cal .d.w span { background: var(--s2); }
+.cal .d i { font-style: normal; font-size: 10px; font-weight: 800; margin-top: 2px; }
+.cal .d.today span { box-shadow: inset 0 0 0 2px var(--fg); }
+.cal .d.sel span { box-shadow: 0 0 0 3px var(--fg); }
+.picked { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.picked div { display: flex; align-items: center; gap: 10px; background: var(--s1); border-radius: 14px; padding: 12px 14px; font-size: 17px; }
+.picked .mu { margin-left: auto; font-size: 14px; }
+.picked i, .legend i, .rdot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+.rdot { width: 9px; height: 9px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--mu); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sum { display: flex; justify-content: space-between; margin-top: 16px; }
+.sum div { font-size: 12px; color: var(--mu); }
+.sum b { display: block; font-size: 24px; color: var(--fg); letter-spacing: -.02em; }
+.sum b.up { color: var(--up); } .sum b.dn { color: var(--dn); }
+
+/* ---- coach ---- */
+.cavatar { width: 28px; height: 28px; border-radius: 50%; background: var(--sel); color: var(--seltx); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.cavatar .icn { width: 16px; height: 16px; }
+.cintro { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.cintro .cavatar { width: 40px; height: 40px; } .cintro .cavatar .icn { width: 22px; height: 22px; }
+.cintro p { margin: 0; color: var(--mu); }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.fgrid .ftile { width: auto; height: 120px; }
+.ftile { width: 120px; height: 104px; flex: none; border-radius: 14px; background: var(--s1); box-shadow: var(--raise); padding: 12px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.ftile .icn { width: 22px; height: 22px; color: var(--fg); }
+.ftile span { font-size: 14px; font-weight: 600; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+.ftile small { color: var(--mu); font-size: 12px; margin-top: auto; }
+.ftile.add { border: 1.5px dashed var(--ln); background: transparent; color: var(--mu); justify-content: center; align-items: center; text-align: center; }
+.ftile.add .icn { color: var(--mu); }
+.chat { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+.msg { padding: 12px 14px; border-radius: 18px; background: var(--s1); box-shadow: var(--raise); max-width: 92%; align-self: flex-start; }
+.msg.user { align-self: flex-end; background: var(--s2); box-shadow: none; border-bottom-right-radius: 6px; }
+.msg.coach { border-bottom-left-radius: 6px; }
+.msg .who { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.msg .who small { color: var(--mu); font-weight: 500; margin-left: auto; padding-left: 10px; }
+.msg .txt { white-space: pre-wrap; line-height: 1.45; }
+.ideas { display: flex; gap: 8px; overflow-x: auto; margin: 14px -16px 0; padding: 0 16px; scrollbar-width: none; }
+.ideas::-webkit-scrollbar { display: none; }
+.ideas button { flex: none; font-size: 14px; font-weight: 600; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--ln); color: var(--fg); }
+/* pinned above the floating tab bar; .coach-page leaves room for it */
+.ask { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tab) + var(--tabpad) + 10px - var(--gap)); max-width: 520px; margin: 0 auto; z-index: 40; display: flex; gap: 10px; align-items: flex-end; }
+.ask textarea { background: var(--tint); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.coach-page { padding-bottom: 70px; }
+.ask textarea { resize: none; max-height: 140px; border-radius: 22px; padding: 11px 16px; }
+.sendbtn { width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--ac); color: #fff; display: flex; align-items: center; justify-content: center; }
+.sendbtn:disabled { background: var(--s2); color: var(--mu); }
+.sendbtn .icn { width: 20px; height: 20px; }
+.tag { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--chipbg); color: #fff; }
+
+/* ---- liquid glass ---- */
+/* two colour blobs drift slowly behind everything: depth without anything near the content moving */
+body::before { content: ''; position: fixed; inset: -20% -20% 35% -20%; z-index: -1; pointer-events: none;
+  background: radial-gradient(55% 55% at 78% 8%, var(--blob1), transparent 70%), radial-gradient(50% 50% at 8% 38%, var(--blob2), transparent 72%);
+  animation: drift 26s ease-in-out infinite alternate; will-change: transform; }
+.panel, .card, .ex-open, .msg, .ftile, .pick, .picked div, .rest, #tabbar {
+  background: linear-gradient(145deg, rgba(255, 255, 255, .17) 0%, rgba(255, 255, 255, .06) 55%, rgba(255, 255, 255, .10) 100%);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7); backdrop-filter: blur(24px) saturate(1.7);
+  border: 1px solid rgba(255, 255, 255, .16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -1px 0 rgba(255, 255, 255, .05), 0 12px 32px rgba(0, 0, 0, .28);
+}
+.hero { background: radial-gradient(120% 70% at 90% -10%, rgba(255, 255, 255, .24), transparent 60%), var(--hero);
+  border: 1px solid rgba(255, 255, 255, .22); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 18px 40px rgba(0, 0, 0, .35); }
+.btn.primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 8px 22px var(--ac-soft); }
+
+/* the tab bar takes the colours of the screen it is on: tinted glass, selected item in the accent */
+#tabbar { background: linear-gradient(145deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .03)), var(--tint); border-color: rgba(255, 255, 255, .18); }
+#tabbar button { color: rgba(255, 255, 255, .72); transition: background .3s, color .3s, box-shadow .3s; }
+#tabbar button .icn { transition: transform .3s cubic-bezier(.2, .8, .2, 1), color .3s; }
+#tabbar button.on { background: var(--ac-soft); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 0 22px var(--ac-soft); }
+#tabbar button.on .icn { color: var(--ac); transform: scale(1.12); }
+
+/* the workout screen: bright yellow on top that drops fast into black (a slow fade is what turned it
+   brown), many stops so it is smooth. The selection stays the accent. */
+html.workout {
+  --bottom: #121211; --top: #facc15;
+  --grad: linear-gradient(180deg, #facc15 0%, #f6c812 5%, #ebb90e 10%, #c99a0b 15%, #8a6a09 20%, #4d3b07 26%, #2c2408 33%, #1b180e 45%, #141310 65%, #121211 100%);
+  --blob1: rgba(253, 230, 138, .42); --blob2: rgba(250, 204, 21, .10); --tint: rgba(30, 26, 8, .82); --ac-soft: rgba(250, 204, 21, .28);
+  --sh: #17150f; --ac: #facc15; --actx: #1a1600; --nowbg: rgba(250, 204, 21, .1);
+}
+/* Progressi: ocean blue. Coach (class 'rosa', historic name): warm brown, chosen 23/10. */
+html.ocean {
+  --bottom: #131619; --top: #1d70b9;
+  --grad: linear-gradient(180deg, #1d70b9 0%, #1a63a6 8%, #135290 17%, #0e3f76 28%, #0b2d58 40%, #0a2038 55%, #0e151f 75%, #131619 100%);
+  --blob1: rgba(125, 190, 255, .36); --blob2: rgba(56, 189, 248, .14); --tint: rgba(14, 46, 82, .82); --ac-soft: rgba(96, 165, 250, .30);
+  --ac: #60a5fa; --actx: #04162e;
+}
+html.rosa {
+  --bottom: #151210; --top: #7a5a45;
+  --grad: linear-gradient(180deg, #7a5a45 0%, #684c3a 10%, #523b2d 24%, #3d2d23 42%, #2b211b 62%, #1d1714 82%, #151210 100%);
+  --blob1: transparent; --blob2: transparent; --tint: #3a2d25; --ac-soft: rgba(232, 178, 122, .27);
+  --ac: #e8b27a; --actx: #2a1708;
+}
+/* Coach = a chat: solid bubbles (glass hurts reading), his messages in amber, the coach's in dark brown */
+html.rosa .msg { background: #3a2d25; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.rosa .msg.user { background: #c98a4b; color: #1f1308; }
+html.rosa .ask textarea { background: #3a2d25; }
+/* on the yellow top the header reads in dark ink */
+html.workout .s-hd { color: #141000; }
+html.workout .s-hd .t small { color: rgba(20, 16, 0, .7); }
+html.workout .s-hd .iconbtn { background: rgba(0, 0, 0, .12); color: #141000; }
+
+/* ---- motion: small, short, and never near the thing he is tapping ---- */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetUp { from { opacity: 0; transform: translateY(36px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(5%, 4%, 0) scale(1.15); } }
+/* a screen's blocks rise in one after the other when it opens */
+.narrow > .hero, .narrow > .panel, .narrow > .card, .narrow > .pick, .narrow > .grp, .narrow > .prow { animation: fadeUp .5s cubic-bezier(.2, .8, .2, 1) both; }
+.narrow > :nth-child(2) { animation-delay: .05s; } .narrow > :nth-child(3) { animation-delay: .1s; }
+.narrow > :nth-child(4) { animation-delay: .15s; } .narrow > :nth-child(5) { animation-delay: .2s; } .narrow > :nth-child(n+6) { animation-delay: .25s; }
+.chat > .msg { animation: fadeUp .35s cubic-bezier(.2, .8, .2, 1) both; }
+.sheet { animation: sheetUp .32s cubic-bezier(.2, .8, .2, 1); }
+.mback { animation: fadeIn .25s; }
+.center { animation: fadeUp .25s; }
+.rest { animation: fadeIn .25s; }
+.set.done .chk .icn { animation: pop .22s ease-out; }   /* only the tapped circle */
+.s-prog i { transition: width .45s cubic-bezier(.2, .8, .2, 1); }
+.seg button, .tabs button, .prow { transition: background .25s, color .25s; }
+.btn, .pick, .poster, .prow, .chip, .iconbtn, #tabbar button, .seg button, .tabs button, .ideas button, .secbtn, .set .chk { transition: transform .12s, background .25s, color .25s, box-shadow .3s; }
+.btn:active, .pick:active, .poster:active, .prow:active, .chip:active, .iconbtn:active, #tabbar button:active, .seg button:active, .tabs button:active, .ideas button:active, .secbtn:active { transform: scale(.97); }
+.set .chk:active { transform: scale(.92); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
