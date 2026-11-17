@@ -18,6 +18,8 @@ export const ago = iso => {
   const n = daysSince(iso)
   return n === 0 ? t('oggi') : n === 1 ? t('ieri') : n < 7 ? weekday(iso) : ddmm(iso)
 }
+// "5 esercizi · l'ultima volta ieri", or "· mai fatta" for a routine never done.
+export const lastLine = (n, iso) => iso ? t("{0} esercizi · l'ultima volta {1}", n, ago(iso)) : t('{0} esercizi', n) + ' · ' + t('mai fatta')
 export const pics = (S, r) => (r?.ex || []).map(e => e.id).filter(id => EXIDX[id]?.img)
 
 function Week({ S, open }) {
@@ -51,7 +53,7 @@ export default function Train() {
     {(A || sug) && <div className="hero">
       <span className="chip"><Icon name="clock" />{A ? t('In corso') : last ? t('Ferma da {0} giorni', daysSince(last)) : t('Mai fatta')}</span>
       <h1>{A ? A.name : sug.name}</h1>
-      {!A && <div className="m">{t("{0} esercizi · l'ultima volta {1}", nEx(sug), ago(last))}</div>}
+      {!A && <div className="m">{lastLine(nEx(sug), last)}</div>}
       <div className="thumbs">{pics(S, heroR).slice(0, 4).map(id => <Thumb key={id} id={id} size={62} />)}</div>
       <div className="btns">
         {A ? <button className="btn white" onClick={() => nav('/allenamento')}><Icon name="play" />{t('Riprendi')}</button>

@@ -12,7 +12,7 @@ import { openPicker } from '../components/ExercisePicker.jsx'
 import { confirmAsk, promptAsk } from '../components/ask.jsx'
 import { newExercise } from '../components/newExercise.jsx'
 import { t } from '../lib/i18n.js'
-import { lastDone, ago, pics } from './Train.jsx'
+import { lastDone, lastLine } from './Train.jsx'
 
 export function RoutineEditor({ id, back }) {
   const nav = useNavigate()
@@ -81,17 +81,15 @@ export function RoutineList({ open }) {
     update(s => { s.routines.push({ id, name, ex: [], color: PALETTE.find(c => !used.has(c)) || PALETTE[0] }) })
     open(id)
   })
-  // Same cards as "Inizia": the exercise pictures are what makes a routine recognisable at a glance.
+  // Name cards with the routine's colour as a stripe: no pictures, he recognises them by name.
   const group = (label, icon, list) => list.length > 0 && <>
     <div className="sec"><h2 className="gh"><Icon name={icon} />{label}</h2></div>
-    {list.map(r => <button key={r.id} className="pick" onClick={() => open(r.id)}>
-      {pics(S, r).length > 0 && <div className="pics">{pics(S, r).slice(0, 4).map(id => <Thumb key={id} id={id} />)}</div>}
-      <div className="row" style={{ marginTop: 12 }}>
-        <i className="rdot" style={{ background: routineColor(S, r.id), width: 12, height: 12 }} />
+    {list.map(r => <button key={r.id} className="pick rc" style={{ '--rc': routineColor(S, r.id) }} onClick={() => open(r.id)}>
+      <div className="row">
         <b className="grow">{r.name}</b>
         <Icon name="pencil" size={18} className="mu" />
       </div>
-      <div className="eb" style={{ marginTop: 4 }}>{t("{0} esercizi · l'ultima volta {1}", r.ex.length, ago(lastDone(S, r.id)))}</div>
+      <div className="eb" style={{ marginTop: 4 }}>{lastLine(r.ex.length, lastDone(S, r.id))}</div>
     </button>)}
   </>
   return <>

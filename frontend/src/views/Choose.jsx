@@ -5,7 +5,7 @@ import { startSession } from '../lib/session.js'
 import Back from '../components/Back.jsx'
 import Icon from '../components/Icon.jsx'
 import Thumb from '../components/Thumb.jsx'
-import { lastDone, ago, pics } from './Train.jsx'
+import { lastDone, pics, lastLine } from './Train.jsx'
 import { t } from '../lib/i18n.js'
 
 // "Inizia": every routine as a big card with its pictures, the suggested one first.
@@ -27,7 +27,7 @@ export default function Choose() {
         <b className="grow">{r.name}</b>
         {r === sug && <span className="chip">{t('consigliata')}</span>}
       </div>
-      <div className="eb" style={{ marginTop: 4 }}>{t("{0} esercizi · l'ultima volta {1}", r.ex.length, ago(lastDone(S, r.id)))}</div>
+      <div className="eb" style={{ marginTop: 4 }}>{lastLine(r.ex.length, lastDone(S, r.id))}</div>
     </button>)}
     <button className="pick free" onClick={() => start(null)}>
       <Icon name="plus" size={26} /><b>{t('Allenamento libero')}</b><span className="eb">{t('scegli gli esercizi mentre vai')}</span>
