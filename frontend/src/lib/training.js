@@ -113,7 +113,7 @@ export function workoutDelta(S, workoutId) {
 
 export function monthSummary(S, year, month0) {
   const prefix = `${year}-${String(month0 + 1).padStart(2, '0')}`
-  const ws = (S.workouts || []).filter(w => w.d.startsWith(prefix))
+  const ws = (S.workouts || []).filter(w => w.d.startsWith(prefix) && !isRec(S, w))
   const deltas = ws.map(w => workoutDelta(S, w.id)).filter(x => x != null)
   const bw = (S.bodyweight || []).filter(b => b.d.startsWith(prefix))
   return {
@@ -132,7 +132,8 @@ export function setsPerMuscle(S, today, days = 30) {
     if (w.d < from || w.d > today) continue
     for (const e of w.entries || []) {
       const n = done(e.sets).length
-      if (!n) continue
+      // stretching and mobility are not training volume
+      if (!n || ['stretch', 'mob'].includes(exOf(S, e.id).ty)) continue
       const m = muscleOf(S, e.id)
       if (m) c[m] = (c[m] || 0) + n
     }
@@ -140,18 +141,30 @@ export function setsPerMuscle(S, today, days = 30) {
   return Object.entries(c).map(([muscle, sets]) => ({ muscle, sets })).sort((a, b) => b.sets - a.sets)
 }
 
+// Recovery routines (mobility, rehab, stretching) are done on rest days too: they never stand
+// in for a gym day — not suggested, not counted, and a gym session wins the day's colour.
+export const isRec = (S, w) => !!(S.routines || []).find(r => r.id === w.routineId)?.rec
+// The workout that represents a day: the last gym one, else the last of any kind.
+export const mainOf = (S, list) => list && ([...list].reverse().find(w => !isRec(S, w)) || list[list.length - 1])
+
 export function suggestedRoutine(S) {
   const last = id => (S.workouts || []).reduce((d, w) => (w.routineId === id && w.d > d ? w.d : d), '')
   let best = null
-  for (const r of S.routines || []) if (!best || last(r.id) < last(best.id)) best = r
+  for (const r of S.routines || []) if (!r.rec && (!best || last(r.id) < last(best.id))) best = r
   return best
 }
 
-// One colour per routine (by position), shared by the calendar, its legend and the week strip.
+// One colour per routine (by position within its group), shared by the calendar, its legend and the week strip.
 const ROUTINE_COLORS = ['#c4b5fd', '#fde68a', '#f9a8d4', '#a5f3fc', '#bbf7d0']
+const REC_COLORS = ['#fdba74', '#fca5a5', '#d6d3d1']
+export const PALETTE = [...ROUTINE_COLORS, ...REC_COLORS]   // the swatches in the routine editor
 export function routineColor(S, id) {
-  const i = (S.routines || []).findIndex(r => r.id === id)
-  return i < 0 ? null : ROUTINE_COLORS[i % ROUTINE_COLORS.length]
+  const r = (S.routines || []).find(x => x.id === id)
+  if (!r) return null
+  if (r.color) return r.color
+  const pal = r.rec ? REC_COLORS : ROUTINE_COLORS
+  const i = S.routines.filter(x => !!x.rec === !!r.rec).indexOf(r)
+  return pal[i % pal.length]
 }
 
 // One weight per day: logging again the same day replaces it. Oldest first.

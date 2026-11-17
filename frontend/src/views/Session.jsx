@@ -62,7 +62,7 @@ function OpenEntry({ S, e, upd, prev }) {
   }
   return <div className="ex-open">
     <div className={'pic' + (ex?.img ? '' : ' none')}>
-      {ex?.img && <img src={imgSrc(ex)} alt="" />}
+      {ex?.img && <img src={imgSrc(ex)} alt="" onError={e => { e.currentTarget.style.visibility = 'hidden' }} />}
       <MuscleTag S={S} id={e.id} />
       {!hint && <button className="chip cuebtn" onClick={feel}><Icon name="sparkles" />{t('Cosa sentire?')}</button>}
     </div>

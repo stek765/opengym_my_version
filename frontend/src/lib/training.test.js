@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import real from './fixture-state.json'
 import {
   displayName, lastSession, measureOf, startSets, increaseOffer, applyIncrease, topOf,
-  finishSession, exerciseRows, exerciseHistory, workoutDelta, monthSummary, setsPerMuscle, suggestedRoutine, routineColor, withWeight
+  finishSession, exerciseRows, exerciseHistory, workoutDelta, monthSummary, setsPerMuscle, suggestedRoutine, routineColor, withWeight, isRec, mainOf
 } from './training.js'
 
 const S = (extra = {}) => ({ exNames: {}, incr: {}, threshold: 10, muscles: {}, customEx: [], ...JSON.parse(JSON.stringify(real)), ...extra })
@@ -140,5 +140,16 @@ describe('withWeight', () => {
     const b = withWeight(a, 75.2, '2026-10-23', 10)
     expect(b.filter(x => x.d === '2026-10-23')).toEqual([{ d: '2026-10-23', w: 75.2, t: 10 }])
     expect(list.length).toBe(2)   // the input is not mutated
+  })
+})
+
+describe('recovery routines', () => {
+  const S = { routines: [{ id: 'g', name: 'Gym', ex: [] }, { id: 'r', name: 'Rec', ex: [], rec: true }], workouts: [] }
+  it('are never suggested', () => { expect(suggestedRoutine({ ...S, routines: [S.routines[1]] })).toBe(null) })
+  it('colour from their own palette', () => { expect(routineColor(S, 'r')).not.toBe(routineColor(S, 'g')) })
+  it('a gym session wins the day', () => {
+    const list = [{ id: 1, routineId: 'g' }, { id: 2, routineId: 'r' }]
+    expect(mainOf(S, list).id).toBe(1)
+    expect(isRec(S, list[1])).toBe(true)
   })
 })

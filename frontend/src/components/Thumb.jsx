@@ -7,6 +7,6 @@ export default function Thumb({ id, size, icon = 'dumbbell' }) {
   const ex = EXIDX[id]
   const st = size ? { width: size, height: size } : null
   return ex?.img
-    ? <img className="thumb" src={imgSrc(ex)} alt="" loading="lazy" style={st} />
+    ? <img className="thumb" src={imgSrc(ex)} alt="" loading="lazy" style={st} onError={e => { e.currentTarget.style.visibility = 'hidden' }} />
     : <span className="thumb none" style={st}><Icon name={icon} size={Math.round((size || 40) * .45)} /></span>
 }

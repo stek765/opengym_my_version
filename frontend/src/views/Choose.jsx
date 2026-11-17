@@ -14,7 +14,7 @@ export default function Choose() {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const sug = suggestedRoutine(S)
-  const list = [sug, ...S.routines.filter(r => r !== sug)].filter(Boolean)
+  const list = [sug, ...S.routines.filter(r => r !== sug && !r.rec), ...S.routines.filter(r => r.rec)].filter(Boolean)
   const start = r => { update(s => { s.active = startSession(s, r) }); nav('/allenamento', { replace: true }) }
 
   return <div className="narrow">

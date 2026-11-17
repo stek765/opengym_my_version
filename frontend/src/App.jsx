@@ -51,7 +51,7 @@ function Shell() {
 
   return (
     <>
-      <div id="app" key={loc.pathname + S.lang} className={!authed || inWorkout ? 'full' : ''}>
+      <div id="app" key={loc.pathname + S.lang + (loc.state?.tab || '')} className={!authed || inWorkout ? 'full' : ''}>
         <ErrorBoundary>
           {!authed ? <Login /> : (
             <Routes>

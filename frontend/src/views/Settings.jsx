@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import Icon from '../components/Icon.jsx'
 import Back from '../components/Back.jsx'
 import { openNumber } from '../components/NumberSheet.jsx'
 import { pushSupported, pushPermission, enablePush, disablePush } from '../lib/push.js'
@@ -25,10 +26,12 @@ export default function Settings() {
   return <div className="narrow">
     <Back label="Coach" onClick={() => nav('/coach')} />
     <h1>{t('Impostazioni')}</h1>
-    <button className="line" onClick={() => update(s => { s.lang = getLang() === 'it' ? 'en' : 'it' })}><span>{t('Lingua')}</span><span className="r">{getLang() === 'it' ? 'Italiano' : 'English'}</span></button>
-    <button className="line" onClick={() => ask(t('Recupero tra le serie (secondi)'), 'restSec', S.restSec || 90)}><span>{t('Recupero')}</span><span className="r">{S.restSec || 90} s</span></button>
-    <button className="line" onClick={() => ask(t('Ripetizioni per proporti di salire'), 'threshold', S.threshold ?? 10)}><span>{t('Soglia per salire di peso')}</span><span className="r">{t('{0} ripetizioni', S.threshold ?? 10)}</span></button>
-    {pushSupported() && <button className="line" onClick={togglePush}><span>{t('Notifiche del coach')}</span><span className="r">{t(push === 'granted' ? 'attive' : 'spente')}</span></button>}
+    <section className="panel setl">
+    <button className="line" onClick={() => update(s => { s.lang = getLang() === 'it' ? 'en' : 'it' })}><Icon name="globe" /><span className="grow">{t('Lingua')}</span><span className="r">{getLang() === 'it' ? 'Italiano' : 'English'}</span></button>
+    <button className="line" onClick={() => ask(t('Recupero tra le serie (secondi)'), 'restSec', S.restSec || 90)}><Icon name="timer" /><span className="grow">{t('Recupero')}</span><span className="r">{S.restSec || 90} s</span></button>
+    <button className="line" onClick={() => ask(t('Ripetizioni per proporti di salire'), 'threshold', S.threshold ?? 10)}><Icon name="arrowUp" /><span className="grow">{t('Soglia per salire di peso')}</span><span className="r">{t('{0} ripetizioni', S.threshold ?? 10)}</span></button>
+    {pushSupported() && <button className="line" onClick={togglePush}><Icon name="bell" /><span className="grow">{t('Notifiche del coach')}</span><span className="r">{t(push === 'granted' ? 'attive' : 'spente')}</span></button>}
+    </section>
     {err && <div className="dn small">{err}</div>}
     <div style={{ height: 30 }} />
     <div style={{ height: 14 }} />

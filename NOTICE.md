@@ -34,3 +34,11 @@ and are **not** covered by openGym's AGPL license — they remain under that dat
 The media files are not distributed in this repository; they are downloaded from the upstream
 source by that script. If you redistribute openGym with the media included, review the upstream
 license first.
+
+Entries whose id starts with `fe-`, and their pictures (`media/img/fe-*.jpg`), come from
+[**yuhonas/free-exercise-db**](https://github.com/yuhonas/free-exercise-db), released into the
+public domain under the [Unlicense](https://unlicense.org/).
+
+Entries whose id starts with `rh-` were written for this fork. Their pictures come from several
+sources (some under CC BY-SA, others copyrighted) and are **not** distributed or downloaded by
+any script: on an install without them those exercises simply show no picture.

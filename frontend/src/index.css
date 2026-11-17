@@ -63,6 +63,25 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 26px 0 1
 /* ---- structure ---- */
 .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--ln); width: 100%; text-align: left; }
 .line .r { color: var(--mu); font-size: 14px; text-align: right; }
+.tys { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.tys button { padding: 8px 12px; border-radius: 999px; background: var(--s2); font-weight: 700; font-size: 14px; }
+.tys button.on { background: var(--ac); color: #111; }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 16px; }
+.swatches button { width: 30px; height: 30px; border-radius: 50%; outline: 2px solid transparent; outline-offset: 3px; }
+.swatches button.on { outline-color: var(--fg); }
+.swatches { margin: 0; }
+.tabs button .icn { width: 15px; height: 15px; vertical-align: -2px; margin-right: 6px; }
+.gh { display: flex; align-items: center; gap: 8px; }
+.gh .icn { width: 20px; height: 20px; color: var(--mu); }
+.erow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--ln); }
+.erow .nm { font-size: 16px; font-weight: 600; line-height: 1.25; }
+.erow .meta { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.erow .meta .pill { min-width: 0; padding: 4px 10px; }
+.erow .ctl { display: flex; gap: 4px; flex: none; }
+.setl { padding: 4px 16px; }
+.setl .line { gap: 12px; }
+.setl .line:last-child { border-bottom: 0; }
+.setl .line > .icn { width: 20px; height: 20px; color: var(--mu); flex: none; }
 .row { display: flex; align-items: center; gap: 10px; }
 .between { justify-content: space-between; }
 .grow { flex: 1; min-width: 0; }
@@ -169,7 +188,7 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 26px 0 1
 /* the rest timer sits right under the sets of the exercise he is doing: it covers nothing */
 .rest { display: flex; align-items: center; gap: 12px; margin-top: 12px; background: var(--s2); border: 1px solid var(--ln); border-radius: 16px; padding: 10px 14px; }
 .rest .icn { width: 22px; height: 22px; color: var(--mu); }
-.rest b { font-size: 36px; font-weight: 800; letter-spacing: -.02em; line-height: 1; color: var(--ac); }
+.rest .rt { font-size: 36px; font-weight: 800; letter-spacing: -.02em; line-height: 1; color: var(--ac); background: none; padding: 0; border-radius: 0; font-variant-numeric: tabular-nums; }
 .rest span { flex: 1; font-size: 14px; font-weight: 600; color: var(--mu); }
 .rest button { font-weight: 700; font-size: 15px; padding: 10px 16px; border-radius: 999px; background: var(--fg); color: #111; }
 .mini { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 4px; font-size: 15px; color: var(--mu); text-align: left; }
@@ -226,6 +245,12 @@ h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin: 26px 0 1
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .pad button { padding: 14px 0; font-size: 22px; font-weight: 600; border-radius: 12px; background: var(--s2); }
 .ns .two { display: flex; gap: 8px; margin-top: 12px; }
+.wheels { position: relative; isolation: isolate; display: flex; justify-content: center; align-items: center; gap: 6px; margin: 8px 0 16px; }
+.wheels::before { content: ''; position: absolute; left: 18%; right: 18%; top: 50%; height: 44px; transform: translateY(-50%); border-radius: 12px; background: var(--s2); z-index: -1; }
+.wheels > b { font-size: 32px; font-weight: 800; }
+.wheel { height: 132px; width: 76px; overflow-y: scroll; scroll-snap-type: y mandatory; padding: 44px 0; box-sizing: border-box; scrollbar-width: none; -webkit-mask-image: linear-gradient(transparent, #000 35%, #000 65%, transparent); mask-image: linear-gradient(transparent, #000 35%, #000 65%, transparent); }
+.wheel::-webkit-scrollbar { display: none; }
+.wheel div { height: 44px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---- progress ---- */
 .rec { width: 116px; flex: none; text-align: left; }

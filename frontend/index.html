@@ -12,6 +12,19 @@
      With "black-translucent" iOS declared the page 47px shorter than the screen and cut it off at the bottom. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="openGym">
+<!-- iOS paints the status strip from the very first frame of a page load. The auto-update reload lands on
+     whatever screen is open, so its colour class must be on <html> before React runs (same classes and
+     --top colours as App.jsx / index.css). -->
+<script>
+(function () {
+  var h = location.hash, c = h.indexOf('#/allenamento') === 0 ? ['workout', '#facc15']
+    : (h.indexOf('#/coach') === 0 || h.indexOf('#/impostazioni') === 0) ? ['rosa', '#7a5a45']
+    : h.indexOf('#/progressi') === 0 ? ['ocean', '#1d70b9'] : null
+  if (!c) return
+  document.documentElement.classList.add(c[0])
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', c[1])
+})()
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-180.png">

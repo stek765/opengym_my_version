@@ -36,14 +36,14 @@ export default function ExerciseDetail() {
   const measure = measureOf(S, exId)
   const all = exerciseHistory(S, exId)          // newest first
   const shown = exerciseHistory(S, exId, from)
-  if (!all.length) return <div className="narrow"><Back label={t('Progressi')} onClick={() => nav('/progressi')} /><h1>{displayName(S, exId)}</h1><div className="empty">{t('Mai fatto')}</div></div>
+  if (!all.length) return <div className="narrow"><Back label={t('Progressi')} onClick={() => nav('/progressi', { state: { sec: 'prog' } })} /><h1>{displayName(S, exId)}</h1><div className="empty">{t('Mai fatto')}</div></div>
   const now = topOf(all[0].sets, measure), first = all[all.length - 1]
   const firstTop = topOf(first.sets, measure)
   const d = Math.round((now - firstTop) * 100) / 100
   const u = measure === 'kg' ? ' kg' : measure === 'reps' ? ' ' + t('rip') : ' s'
 
   return <div className="narrow">
-    <Back label={t('Progressi')} onClick={() => nav('/progressi')} />
+    <Back label={t('Progressi')} onClick={() => nav('/progressi', { state: { sec: 'prog' } })} />
     <div className="row" style={{ gap: 14, margin: '10px 0 14px' }}><Thumb id={exId} size={72} /><h1 style={{ margin: 0 }}>{displayName(S, exId)}</h1></div>
     <div className="big">{num(now)}<small>{u}</small></div>
     {d !== 0 && firstTop > 0 && <div className={'small ' + (d > 0 ? 'up' : 'dn')} style={{ margin: '4px 0 12px' }}>

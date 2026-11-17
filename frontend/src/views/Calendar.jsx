@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Back from '../components/Back.jsx'
 import { useStore } from '../store/useStore.js'
-import { workoutDelta, monthSummary, routineColor } from '../lib/training.js'
+import { workoutDelta, monthSummary, routineColor, mainOf } from '../lib/training.js'
 import { num, pct, todayISO } from '../lib/format.js'
 import { t, weekday, monthName, weekLetters } from '../lib/i18n.js'
 
@@ -42,10 +42,11 @@ export default function Calendar() {
       {Array.from({ length: lead }, (_, i) => <div key={'e' + i} />)}
       {Array.from({ length: days }, (_, i) => {
         const d = iso(y, m, i + 1), list = byDay[d]
-        const delta = list ? workoutDelta(S, list[list.length - 1].id) : null
-        const c = list && (routineColor(S, list[list.length - 1].routineId) || 'var(--s2)')
+        const main = mainOf(S, list)
+        const delta = main ? workoutDelta(S, main.id) : null
+        const c = main && (routineColor(S, main.routineId) || 'var(--s2)')
         return <button key={d} className={'d' + (list ? ' w' : '') + (d === today ? ' today' : '') + (d === sel ? ' sel' : '')} disabled={!list} onClick={() => setSel(d === sel ? null : d)}>
-          <span style={c ? { background: c, color: routineColor(S, list[list.length - 1].routineId) ? '#1a1a1a' : undefined } : undefined}>{i + 1}</span>
+          <span style={c ? { background: c, color: routineColor(S, main.routineId) ? '#1a1a1a' : undefined } : undefined}>{i + 1}</span>
           {list && delta != null && <i className={delta > 0 ? 'up' : delta < 0 ? 'dn' : 'mu'}>{pct(Math.round(delta))}</i>}
         </button>
       })}

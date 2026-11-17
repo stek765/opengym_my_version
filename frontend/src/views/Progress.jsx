@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { exerciseRows, exerciseHistory, topOf } from '../lib/training.js'
 import { num } from '../lib/format.js'
@@ -9,12 +9,29 @@ import Icon from '../components/Icon.jsx'
 import { openWeight } from '../lib/weight.js'
 import { RANGES } from './ExerciseDetail.jsx'
 import { t } from '../lib/i18n.js'
+import { RoutineEditor, RoutineList } from './Routines.jsx'
 
 const BW = 'peso'   // the body-weight line, listed with the exercises
 const unitOf = m => (m === 'kg' ? 'kg' : m === 'reps' ? t('rip') : 's')
 
+// The Esercizi tab: the routines (default) and, on the second chip, the progress chart.
+export default function Exercises() {
+  const back = useLocation().state?.sec   // coming back from one exercise's detail lands on Progressi
+  const [sec, setSec] = useState(back === 'prog' ? 'prog' : 'schede')
+  const [edit, setEdit] = useState(null)
+  if (edit) return <RoutineEditor id={edit} back={() => setEdit(null)} />
+  return <div className="narrow">
+    <h1>{t('Exercises')}</h1>
+    <div className="tabs">
+      <button className={sec === 'schede' ? 'on' : ''} onClick={() => setSec('schede')}>{t('Schede')}</button>
+      <button className={sec === 'prog' ? 'on' : ''} onClick={() => setSec('prog')}>{t('Progressi')}</button>
+    </div>
+    {sec === 'schede' ? <RoutineList open={setEdit} /> : <Progress />}
+  </div>
+}
+
 // One chart, one list: tap an exercise (or body weight) and the chart shows it. Neutral colours only.
-export default function Progress() {
+function Progress() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
@@ -45,8 +62,7 @@ export default function Progress() {
     {thumb}<span className="grow">{label}</span><span className="v">{value}</span>
   </button>
 
-  return <div className="narrow">
-    <h1>{t('Progressi')}</h1>
+  return <>
     <div className="card chartcard">
       <div className="row" style={{ gap: 12 }}>
         {sel === BW ? <span className="thumb none" style={{ width: 48, height: 48 }}><Icon name="scale" size={22} /></span> : <Thumb id={sel} size={48} />}
@@ -66,5 +82,5 @@ export default function Progress() {
       {g.rows.map(x => <Row key={x.id} id={x.id} label={x.name} value={num(x.now) + ' ' + unitOf(x.measure)} thumb={<Thumb id={x.id} size={40} />} />)}
     </div>)}
     {r && <button className="lnk" style={{ marginTop: 10 }} onClick={() => nav('/progressi/' + sel)}>{t('Tutte le serie di {0}', r.name)} ›</button>}
-  </div>
+  </>
 }
