@@ -57,6 +57,13 @@ updates:
       api-major:
         patterns: ['*']
         update-types: ['major']
+    ignore:
+      # pdf-parse 2 is a rewrite (class API, different import): a migration, not a bump.
+      # @anthropic-ai/sdk is only here as the Agent SDK's peer (>=0.93); the code never imports it.
+      - dependency-name: pdf-parse
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@anthropic-ai/sdk'
+        update-types: ['version-update:semver-major']
 
   # Base images — api/Dockerfile (node:22-alpine)
   - package-ecosystem: docker
