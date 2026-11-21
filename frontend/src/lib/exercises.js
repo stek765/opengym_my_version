@@ -43,3 +43,38 @@ export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : 
 // down on the first `ex.n`.
 export const exOr = id => EXIDX[id] ||
   { id, n: t('Unknown exercise'), bp: '', tg: '', eq: '', sm: [], st: [], missing: true }
+
+// The library is in English: an Italian word also looks for its English names, muscles and
+// equipment ("panca" finds "bench press"). Multi-word keys first so "lat machine" wins over "lat".
+const IT = [
+  ['lat machine', 'pulldown'], ['corpo libero', 'body weight'], ['panca piana', 'bench press'],
+  ['panca', 'bench'], ['spalle', 'shoulder,delts'], ['spalla', 'shoulder,delts'], ['rematore', 'row'], ['petto', 'chest,pectorals'],
+  ['pettorali', 'chest,pectorals'], ['schiena', 'back,lats'], ['dorso', 'back,lats'], ['dorsali', 'lats,pulldown'],
+  ['gambe', 'leg,squat,quads'], ['bicipiti', 'curl,biceps'], ['tricipiti', 'triceps'], ['polpacci', 'calf,calves'],
+  ['addome', 'abs,crunch,sit up'], ['addominali', 'abs,crunch,sit up'], ['trazioni', 'pull up,chin up'], ['affondi', 'lunge'],
+  ['stacco', 'deadlift'], ['croci', 'fly'], ['alzate', 'raise'], ['glutei', 'glute'], ['quadricipiti', 'quads'],
+  ['femorali', 'hamstring'], ['adduttori', 'adductor'], ['abduttori', 'abductor'], ['avambracci', 'forearm,wrist'],
+  ['trapezio', 'shrug,traps'], ['collo', 'neck'], ['manubri', 'dumbbell'], ['manubrio', 'dumbbell'], ['bilanciere', 'barbell'],
+  ['cavi', 'cable'], ['cavo', 'cable'], ['elastico', 'band'], ['pressa', 'leg press'], ['spinte', 'press'],
+  ['distensioni', 'press'], ['piegamenti', 'push up'], ['flessioni', 'push up'], ['estensioni', 'extension'],
+  ['inclinata', 'incline'], ['declinata', 'decline'], ['allungamento', 'stretch'], ['corsa', 'run'], ['bici', 'bike'],
+  ['salti', 'jump'], ['salto', 'jump'], ['braccia', 'upper arms'], ['ponte', 'bridge']
+]
+// words compared from their start, so "row" does not find "throw" and "run" not "crunch"
+const norm = s => ' ' + s.toLowerCase().replace(/[^a-z0-9àèéìòù]+/g, ' ').trim()
+
+// Query → groups of alternatives; an exercise matches when every group hits its text.
+export function searchTerms(q) {
+  let s = norm(q) + ' '
+  const groups = []
+  for (const [it, en] of IT) if (it.includes(' ') && s.includes(' ' + it + ' ')) { groups.push([it, ...en.split(',')].map(norm)); s = s.replace(it, ' ') }
+  for (const w of s.split(' ')) if (w) {
+    const g = [w]
+    // a word being typed ("pan") already expands, so the list does not jump at the last letter
+    if (w.length >= 3) for (const [it, en] of IT) if (!it.includes(' ') && it.startsWith(w)) g.push(...en.split(','))
+    groups.push(g.map(norm))
+  }
+  return groups
+}
+export const searchText = (e, name) => norm(`${name} ${e.n} ${e.tg || ''} ${e.eq || ''} ${e.bp || ''}`)
+export const matchesTerms = (groups, text) => groups.every(g => g.some(w => text.includes(w)))

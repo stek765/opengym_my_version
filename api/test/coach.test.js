@@ -133,6 +133,19 @@ test('buildContext carries the coach profile (likes and dislikes)', () => {
   assert.equal(c.profilo.dislikes, 'squat, benchpress, stacchi');
 });
 
+test('a chat session only sees its own past messages, and clearing it keeps the others', async () => {
+  reset();
+  replies = [{ answer: 'A1', remember: [] }, { answer: 'B1', remember: [] }, { answer: 'A2', remember: [] }];
+  await jobs.ask(UID, 'parlo di panca', 'sA');
+  await jobs.ask(UID, 'parlo di dieta', 'sB');
+  await jobs.ask(UID, 'e quindi?', 'sA');
+  assert.match(prompts[2], /parlo di panca/);
+  assert.doesNotMatch(prompts[2], /parlo di dieta/);
+  jobs.clearChat(UID, 'chat', 'sA');
+  const sids = new Set(jobs.readChat(UID).filter(m => m.kind === 'chat').map(m => m.sid || 'old'));
+  assert.ok(!sids.has('sA') && sids.has('sB'));
+});
+
 test('clearChat empties one section and keeps the others and the memory', () => {
   const memory = jobs.readMemory(UID).length;
   const kinds = new Set(jobs.readChat(UID).map(m => m.kind));
@@ -140,4 +153,27 @@ test('clearChat empties one section and keeps the others and the memory', () => 
   assert.ok(!jobs.readChat(UID).some(m => m.kind === 'chat'));
   for (const k of kinds) if (k !== 'chat') assert.ok(jobs.readChat(UID).some(m => m.kind === k));
   assert.equal(jobs.readMemory(UID).length, memory);
+});
+
+test('routine changes: known ids kept, library names resolved, unknown names become his own, bad ops dropped', async () => {
+  const S = { routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025', sets: 4, reps: 8, weight: 60 }] }], exNames: {}, customEx: [], workouts: [] };
+  const out = jobs.resolveChanges(S, [
+    { azione: 'modifica', id: 'r1', tipo: 'forza', esercizi: [{ id: '0025' }, { nome: '3/4 sit-up', serie: 3, rip: 15 }, { nome: 'Ponte di Zanolli' }] },
+    { azione: 'crea', nome: 'Stretch serale', tipo: 'stretch', esercizi: [{ nome: '3/4 sit-up', rip: 40 }] },
+    { azione: 'modifica', id: 'nessuna' }, { azione: 'boh' }, { azione: 'crea', nome: 'vuota', esercizi: [] }
+  ]);
+  assert.equal(out.length, 2);
+  assert.deepEqual(out[0].ex.map(e => [e.id, e.sets, e.reps]), [['0025', 4, 8], ['0001', 3, 15], ['c_ponte_di_zanolli', 3, 10]]);
+  assert.equal(out[0].ex[0].weight, 60);
+  assert.deepEqual(out[0].newEx, [{ id: 'c_ponte_di_zanolli', n: 'Ponte di Zanolli' }]);
+  assert.equal(out[1].op, 'create'); assert.equal(out[1].cat, 'stretch'); assert.equal(out[1].ex[0].reps, 40);
+});
+
+test('ask returns the changes and the chat message remembers what changed', async () => {
+  reset();
+  const rid = (jobs.readState(UID).routines || [])[0]?.id;
+  replies = [{ answer: 'Fatto.', remember: [], schede: [{ azione: 'elimina', id: rid }] }];
+  const r = await jobs.ask(UID, 'togli la prima scheda', 's1');
+  assert.equal(r.changes[0].op, 'delete');
+  assert.equal(jobs.readChat(UID).at(-1).changes[0].id, rid);
 });

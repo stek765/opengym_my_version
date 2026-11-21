@@ -16,8 +16,10 @@ const entryFor = (S, ex) => kindOf(S, ex.id) === 'check'
 
 // The workout starts from the warm-up: an unticked check entry counts as "to do".
 const pending = e => !e.skipped && ('check' in e ? !e.check : e.sets.some(s => !s.done))
-export function nextOpen(a) {
-  const e = a.entries.find(pending)
+// from: start looking after that entry (wrapping), so "next" means the one below it.
+export function nextOpen(a, from) {
+  const i = a.entries.findIndex(x => x.id === from) + 1
+  const e = [...a.entries.slice(i), ...a.entries.slice(0, i)].find(pending)
   return e ? e.id : null
 }
 
@@ -78,6 +80,21 @@ export function addEntry(S, a, id) {
   const out = clone(a)
   out.entries.push(entryFor(S, { id, sets: 3, reps: 10 }))
   out.openId = id
+  return out
+}
+
+// "Cambia": the new exercise takes the old one's place in the list. Ticked sets are logged
+// work, so an entry with some keeps them and the new one goes right after it.
+export function replaceEntry(S, a, from, to) {
+  if (a.entries.some(e => e.id === to)) return openEntry(a, to)
+  const out = clone(a)
+  const i = out.entries.findIndex(e => e.id === from)
+  if (i < 0) return a
+  const old = out.entries[i]
+  const kept = old.sets?.some(s => s.done) ? [{ ...old, sets: old.sets.filter(s => s.done) }] : []
+  out.entries.splice(i, 1, ...kept, entryFor(S, { id: to, sets: 3, reps: 10 }))
+  if (out.prevId === from && !kept.length) out.prevId = null
+  out.openId = to
   return out
 }
 

@@ -1,36 +1,39 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { exerciseRows, exerciseHistory, topOf } from '../lib/training.js'
+import { exerciseRows } from '../lib/training.js'
 import { num } from '../lib/format.js'
-import LineChart from '../components/LineChart.jsx'
 import Thumb from '../components/Thumb.jsx'
 import Icon from '../components/Icon.jsx'
 import { openWeight } from '../lib/weight.js'
-import { RANGES } from './ExerciseDetail.jsx'
+import { rangeFrom, Pills, RangeChart, Delta, SEG, SEGT } from './ExerciseDetail.jsx'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
 import { t } from '../lib/i18n.js'
-import { RoutineEditor, RoutineList } from './Routines.jsx'
+import { RoutineList } from './Routines.jsx'
+import Bar from '../components/Bar.jsx'
 
-const BW = 'peso'   // the body-weight line, listed with the exercises
 const unitOf = m => (m === 'kg' ? 'kg' : m === 'reps' ? t('rip') : 's')
 
 // The Esercizi tab: the routines (default) and, on the second chip, the progress chart.
+let lastSec = 'schede'   // the chip he was on, for the rest of the session
 export default function Exercises() {
-  const back = useLocation().state?.sec   // coming back from one exercise's detail lands on Progressi
-  const [sec, setSec] = useState(back === 'prog' ? 'prog' : 'schede')
-  const [edit, setEdit] = useState(null)
-  if (edit) return <RoutineEditor id={edit} back={() => setEdit(null)} />
+  const asked = useLocation().state?.sec   // coming back from one exercise's detail lands on Progressi
+  const [sec, setSec] = useState(() => (lastSec = asked || lastSec))
+  const pick = v => setSec(lastSec = v)
   return <div className="narrow">
-    <h1>{t('Exercises')}</h1>
-    <div className="tabs">
-      <button className={sec === 'schede' ? 'on' : ''} onClick={() => setSec('schede')}>{t('Schede')}</button>
-      <button className={sec === 'prog' ? 'on' : ''} onClick={() => setSec('prog')}>{t('Progressi')}</button>
-    </div>
-    {sec === 'schede' ? <RoutineList open={setEdit} /> : <Progress />}
+    <Bar title={t('Exercises')} />
+    <Tabs value={sec} onValueChange={pick} className="mb-5">
+      <TabsList className={SEG}>
+        <TabsTrigger value="schede" className={SEGT}>{t('Schede')}</TabsTrigger>
+        <TabsTrigger value="prog" className={SEGT}>{t('Progressi')}</TabsTrigger>
+      </TabsList>
+    </Tabs>
+    {sec === 'schede' ? <RoutineList /> : <Progress />}
   </div>
 }
 
-// One chart, one list: tap an exercise (or body weight) and the chart shows it. Neutral colours only.
+// Body weight on top, then every exercise: a tap opens its own page (number, change, chart, sets).
 function Progress() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
@@ -41,46 +44,33 @@ function Progress() {
   const take = list => list.filter(x => x && !seen.has(x.id) && seen.add(x.id))
   const groups = (S.routines || []).map(r => ({ id: r.id, name: r.name, rows: take(r.ex.map(e => byId[e.id])) }))
   groups.push({ id: 'altri', name: t('Altri esercizi'), rows: take(rows) })
-  const first = groups.find(g => g.rows.length)?.rows[0]?.id || BW
-  const [sel, setSel] = useState(first)
   const [range, setRange] = useState('6M')
-
-  const days = RANGES.find(x => x[0] === range)[1]
-  const from = days ? new Date(Date.now() - days * 864e5).toISOString().slice(0, 10) : ''
+  const from = rangeFrom(range)
   const bw = S.bodyweight || []
-  const r = byId[sel]
-  const pts = sel === BW
-    ? bw.filter(b => b.d >= from).map(b => ({ t: new Date(b.d + 'T12:00:00').getTime(), y: b.w, d: b.d }))
-    : exerciseHistory(S, sel, from).reverse().map(s => ({ t: new Date(s.d + 'T12:00:00').getTime(), y: topOf(s.sets, r.measure), d: s.d }))
-  const name = sel === BW ? t('Peso corporeo') : r?.name
-  const u = sel === BW ? 'kg' : unitOf(r?.measure)
-  const now = sel === BW ? bw.at(-1)?.w : r?.now
-  const change = pts.length > 1 ? t('da {0} a {1} {2}', num(pts[0].y), num(pts.at(-1).y), u) : t('un solo allenamento in questo periodo')
-  const pick = id => { setSel(id); document.getElementById('app')?.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const addBw = () => openWeight(S, update)
-  const Row = ({ id, label, value, thumb }) => <button className={'prow' + (sel === id ? ' on' : '')} onClick={() => pick(id)}>
-    {thumb}<span className="grow">{label}</span><span className="v">{value}</span>
-  </button>
+  const pts = bw.filter(b => b.d >= from).map(b => ({ d: b.d, y: b.w }))
 
   return <>
-    <div className="card chartcard">
-      <div className="row" style={{ gap: 12 }}>
-        {sel === BW ? <span className="thumb none" style={{ width: 48, height: 48 }}><Icon name="scale" size={22} /></span> : <Thumb id={sel} size={48} />}
-        <b className="grow" style={{ fontSize: 18 }}>{name}</b>
-        {sel === BW && <button className="iconbtn" aria-label={t('Aggiungi peso')} onClick={addBw}><Icon name="plus" /></button>}
+    <section className="rounded-2xl bg-card p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[15px] font-semibold">{t('Peso corporeo')}</span>
+        <Button variant="tinted" size="icon-sm" aria-label={t('Aggiungi peso')} onClick={() => openWeight(S, update)}><Icon name="plus" size={18} /></Button>
       </div>
-      <div className="big" style={{ margin: '14px 0 2px' }}>{now == null ? '—' : num(now)}<small> {u}</small></div>
-      <div className="eb">{change}</div>
-      <LineChart points={pts} color="var(--fg)" />
-      <div className="seg" style={{ margin: '6px 0 0' }}>{RANGES.map(([k]) => <button key={k} className={range === k ? 'on' : ''} onClick={() => setRange(k)}>{t(k)}</button>)}</div>
-    </div>
+      <div className="mt-1 text-[32px] font-semibold leading-none tabular-nums">{bw.length ? num(bw.at(-1).w) : '—'}<span className="ml-1 text-[17px] font-medium text-muted-foreground">kg</span></div>
+      <div className="mb-3 mt-1.5 min-h-5">{pts.length > 1 && <Delta a={pts[0].y} b={pts.at(-1).y} since={pts[0].d} u="kg" />}</div>
+      <RangeChart sessions={pts} from={from} unit="kg" />
+      <div className="mt-3"><Pills range={range} setRange={setRange} /></div>
+    </section>
 
-    <div className="grp">{t('Corpo')}</div>
-    <Row id={BW} label={t('Peso corporeo')} value={bw.length ? num(bw.at(-1).w) + ' kg' : '—'} thumb={<span className="thumb none" style={{ width: 40, height: 40 }}><Icon name="scale" size={18} /></span>} />
-    {groups.filter(g => g.rows.length).map(g => <div key={g.id}>
-      <div className="grp">{g.name}</div>
-      {g.rows.map(x => <Row key={x.id} id={x.id} label={x.name} value={num(x.now) + ' ' + unitOf(x.measure)} thumb={<Thumb id={x.id} size={40} />} />)}
+    {groups.filter(g => g.rows.length).map(g => <div key={g.id} className="mt-6">
+      <div className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{g.name}</div>
+      <div className="overflow-hidden rounded-2xl bg-card">{g.rows.map(x => <button key={x.id} className="group flex min-h-[60px] w-full items-center pl-4 text-left active:bg-raised" onClick={() => nav('/progressi/' + x.id)}>
+        <Thumb id={x.id} size={40} />
+        <span className="ml-3 flex min-w-0 flex-1 items-center gap-2 self-stretch border-t border-border pr-3 group-first:border-t-0">
+          <span className="min-w-0 flex-1 truncate text-[16px]">{x.name}</span>
+          <span className="text-[16px] font-semibold tabular-nums">{num(x.now)}<span className="ml-0.5 text-[13px] font-normal text-muted-foreground">{unitOf(x.measure)}</span></span>
+          <Icon name="chevronRight" size={18} className="shrink-0 text-muted-foreground/60" />
+        </span>
+      </button>)}</div>
     </div>)}
-    {r && <button className="lnk" style={{ marginTop: 10 }} onClick={() => nav('/progressi/' + sel)}>{t('Tutte le serie di {0}', r.name)} ›</button>}
   </>
 }

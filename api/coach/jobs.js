@@ -20,7 +20,7 @@ const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'prompts
 const LIBRARY = createRequire(import.meta.url)('./library.json').exercises;
 
 export const TIMEOUT_MS = 120000;
-const CHAT_MAX = 200, MEMORY_MAX = 200, CHAT_IN_PROMPT = 20, PDF_TEXT_CAP = 6000;
+const CHAT_MAX = 1000, MEMORY_MAX = 200, CHAT_IN_PROMPT = 20, PDF_TEXT_CAP = 6000;
 const DAILY_DEFAULT = 40;
 // The library's own muscle tags (the app translates them), plus the Italian names a model may still use.
 const MUSCLES = ['pectorals', 'delts', 'lats', 'upper back', 'traps', 'biceps', 'triceps', 'forearms', 'abs', 'quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors'];
@@ -54,9 +54,15 @@ export const readChat = uid => readJSON(file('chat', uid), []);
 export const readMemory = uid => readJSON(file('memory', uid), []);
 export const readDiet = uid => readJSON(file('diet', uid), null);
 export const listFiles = uid => { try { return fs.readdirSync(pdfDir(uid)).filter(f => f.toLowerCase().endsWith('.pdf')).sort(); } catch { return []; } };
+/** The full path of one of his files, or null: only a name listFiles returns, so no ../ escapes. */
+export const filePath = (uid, name) => (listFiles(uid).includes(name) ? path.join(pdfDir(uid), name) : null);
+export const deleteFile = (uid, name) => { const p = filePath(uid, name); if (p) fs.rmSync(p); return listFiles(uid); };
 
 // Clears one section of the chat (chat / after-workout / weekly); what the coach remembers about him stays.
-export const clearChat = (uid, kind) => writeJSON(file('chat', uid), readChat(uid).filter(m => (m.kind || 'chat') !== kind));
+// A chat is split in sessions like a browser chat (sid); messages from before sessions existed form session 'old'.
+// With a sid only that session goes, otherwise the whole kind.
+const sidOf = m => m.sid || 'old';
+export const clearChat = (uid, kind, sid) => writeJSON(file('chat', uid), readChat(uid).filter(m => (m.kind || 'chat') !== kind || (sid && sidOf(m) !== sid)));
 function appendChat(uid, ...msgs) { writeJSON(file('chat', uid), [...readChat(uid), ...msgs].slice(-CHAT_MAX)); }
 function remember(uid, facts) {
   const add = (facts || []).filter(f => typeof f === 'string' && f.trim()).map(text => ({ text: text.trim().slice(0, 300), at: Date.now() }));
@@ -146,6 +152,8 @@ async function context(uid, S) {
 }
 
 const SHAPE = 'Rispondi con un solo oggetto JSON: {"answer": "<testo>", "remember": ["<fatto nuovo>", ...]}.';
+const CHAT_SHAPE = 'Rispondi con un solo oggetto JSON: {"answer": "<testo>", "remember": ["<fatto nuovo>", ...], "schede": [<modifiche alle schede, solo se le fai: vedi sotto>]}.';
+
 
 /** One model call with one repair retry. `check(value)` says whether the JSON has the right shape. */
 async function call(prompt, check) {
@@ -186,14 +194,66 @@ const common = S => fs.readFileSync(path.join(PROMPTS, 'common.md'), 'utf8') +
 
 /* ---------- what the app asks for ---------- */
 
-export async function ask(uid, text) {
+export async function ask(uid, text, sid = 'old') {
   const S = ready(uid);
-  const past = readChat(uid).slice(-CHAT_IN_PROMPT).map(m => `${m.role === 'user' ? 'Lui' : 'Tu'}: ${m.text}`).join('\n');
-  const v = await call([common(S), SHAPE, await context(uid, S), '## Conversazione recente', past, '## Nuovo messaggio', text].join('\n\n'), isAnswer);
+  const past = readChat(uid).filter(m => (m.kind || 'chat') === 'chat' && sidOf(m) === sid).slice(-CHAT_IN_PROMPT).map(m => `${m.role === 'user' ? 'Lui' : 'Tu'}: ${m.text}`).join('\n');
+  const v = await call([common(S), CHAT_SHAPE, fs.readFileSync(path.join(PROMPTS, 'schede.md'), 'utf8'), await context(uid, S), '## Conversazione recente', past, '## Nuovo messaggio', text].join('\n\n'), isAnswer);
+  const changes = resolveChanges(S, v.schede);
   const at = Date.now();
-  appendChat(uid, { role: 'user', kind: 'chat', text, at }, { role: 'coach', kind: 'chat', text: v.answer, at });
+  appendChat(uid, { role: 'user', kind: 'chat', sid, text, at }, { role: 'coach', kind: 'chat', sid, text: v.answer, at, ...(changes.length ? { changes: changes.map(c => ({ op: c.op, id: c.id, name: c.name })) } : {}) });
   remember(uid, v.remember);
-  return { answer: v.answer };
+  return { answer: v.answer, changes };
+}
+
+/* ---------- the coach editing routines ----------
+ * The routines live in the synced state, which only the app writes (see the top of this file).
+ * So the server only checks and resolves what the model asked for; the app applies it. */
+const CAT = new Set(['forza', 'mob', 'stretch']);
+const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const int = (x, lo, hi, d) => { const n = Math.round(+x); return n >= lo && n <= hi ? n : d; };
+
+/** An exercise the model named: one he already has, else the library's, else a new custom one. */
+function exerciseFor(S, e, fresh) {
+  const mine = new Set([...Object.keys(S.exNames || {}), ...(S.customEx || []).map(c => c.id)]);
+  for (const w of S.workouts || []) for (const x of w.entries || []) mine.add(x.id);
+  for (const r of S.routines || []) for (const x of r.ex || []) mine.add(x.id);
+  if (e.id && (mine.has(e.id) || LIBRARY.some(l => l.id === e.id))) return e.id;
+  const n = norm(e.nome || e.name);
+  if (!n) return null;
+  const hit = [...mine].find(id => norm(nameOf(S, id)) === n) || LIBRARY.find(l => norm(l.n) === n)?.id;
+  if (hit) return hit;
+  // ponytail: word overlap, shortest name wins; a wrong pick shows in the routine and he swaps it
+  const words = n.split(' ');
+  const near = LIBRARY.filter(l => words.every(w => norm(l.n).split(' ').includes(w))).sort((a, b) => a.n.length - b.n.length)[0];
+  if (near) return near.id;
+  const id = 'c_' + n.replace(/ /g, '_').slice(0, 40);
+  if (!fresh.some(c => c.id === id) && !(S.customEx || []).some(c => c.id === id)) fresh.push({ id, n: String(e.nome || e.name).trim().slice(0, 80) });
+  return id;
+}
+
+export function resolveChanges(S, list) {
+  const out = [], routines = S.routines || [];
+  for (const c of Array.isArray(list) ? list.slice(0, 10) : []) {
+    const op = { crea: 'create', modifica: 'edit', elimina: 'delete' }[c?.azione];
+    const old = routines.find(r => r.id === c?.id);
+    if (!op || (op !== 'create' && !old)) continue;
+    if (op === 'delete') { out.push({ op, id: old.id, name: old.name }); continue; }
+    const fresh = [];
+    const ex = Array.isArray(c.esercizi) ? c.esercizi.slice(0, 30).map(e => {
+      const id = exerciseFor(S, e || {}, fresh), prev = old?.ex?.find(x => x.id === id);
+      return id && { id, sets: int(e.serie, 1, 10, prev?.sets || 3), reps: int(e.rip, 1, 600, prev?.reps || 10), weight: prev?.weight ?? null };
+    }).filter((e, i, a) => e && a.findIndex(x => x?.id === e.id) === i) : null;
+    const name = String(c.nome || old?.name || '').trim().slice(0, 60);
+    // a stretch is held, so its own new exercises count seconds (the app reads kind 'time')
+    if ((CAT.has(c.tipo) ? c.tipo : old?.cat) === 'stretch') fresh.forEach(f => { f.kind = 'time'; });
+    if (op === 'create' && (!name || !ex?.length)) continue;
+    out.push({
+      op, id: old?.id || 'r' + Date.now().toString(36) + out.length, name,
+      ...(CAT.has(c.tipo) ? { cat: c.tipo } : op === 'create' ? { cat: 'forza' } : {}),
+      ...(ex ? { ex } : {}), ...(fresh.length ? { newEx: fresh } : {})
+    });
+  }
+  return out;
 }
 
 export async function cue(uid, exId) {

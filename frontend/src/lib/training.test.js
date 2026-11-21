@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import real from './fixture-state.json'
-import {
+import { applyCoachChanges,
   displayName, lastSession, measureOf, startSets, increaseOffer, applyIncrease, topOf,
-  finishSession, exerciseRows, exerciseHistory, workoutDelta, monthSummary, setsPerMuscle, suggestedRoutine, routineColor, withWeight, isRec, mainOf
+  finishSession, exerciseRows, exerciseHistory, workoutDelta, monthSummary, setsPerMuscle, suggestedRoutine, routineColor, withWeight, isRec, mainOf, catOf, setCat
 } from './training.js'
 
 const S = (extra = {}) => ({ exNames: {}, incr: {}, threshold: 10, muscles: {}, customEx: [], ...JSON.parse(JSON.stringify(real)), ...extra })
@@ -151,5 +151,29 @@ describe('recovery routines', () => {
     const list = [{ id: 1, routineId: 'g' }, { id: 2, routineId: 'r' }]
     expect(mainOf(S, list).id).toBe(1)
     expect(isRec(S, list[1])).toBe(true)
+  })
+})
+
+it('routine category: old data maps from rec, and setting one keeps rec in step', () => {
+  expect(catOf({})).toBe('forza'); expect(catOf({ rec: true })).toBe('mob')
+  const r = {}; setCat(r, 'stretch'); expect(r.rec).toBe(true); expect(catOf(r)).toBe('stretch')
+  setCat(r, 'forza'); expect(r.rec).toBeUndefined()
+})
+
+describe('applyCoachChanges', () => {
+  it('creates with a category and a free colour, edits only what it names, deletes, adds new exercises once', () => {
+    const s = S()
+    const first = s.routines[0], n = s.routines.length
+    applyCoachChanges(s, [
+      { op: 'create', id: 'rX', name: 'Stretch', cat: 'stretch', ex: [{ id: 'c_x', sets: 1, reps: 30, weight: null }], newEx: [{ id: 'c_x', n: 'X' }] },
+      { op: 'edit', id: first.id, cat: 'mob' },
+      { op: 'edit', id: s.routines[1].id, ex: [], newEx: [{ id: 'c_x', n: 'X' }] },
+      { op: 'delete', id: s.routines[2].id }
+    ])
+    expect(s.routines.length).toBe(n)
+    const x = s.routines.find(r => r.id === 'rX')
+    expect(catOf(x)).toBe('stretch'); expect(x.color).toBeTruthy()
+    expect(first.name).toBeTruthy(); expect(first.ex.length).toBeGreaterThan(0); expect(catOf(first)).toBe('mob')
+    expect(s.customEx.filter(e => e.id === 'c_x').length).toBe(1)
   })
 })

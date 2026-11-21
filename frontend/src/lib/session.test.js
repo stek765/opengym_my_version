@@ -1,6 +1,6 @@
 import { it, expect } from 'vitest'
 import real from './fixture-state.json'
-import { startSession, setValue, toggleSet, addSet, skipEntry, addEntry, answerOffer, nextOpen, settle, removeEntry, openEntry, removeSet } from './session.js'
+import { startSession, setValue, toggleSet, addSet, skipEntry, addEntry, answerOffer, nextOpen, settle, removeEntry, openEntry, removeSet, replaceEntry } from './session.js'
 
 const S = () => ({ exNames: {}, incr: {}, threshold: 10, muscles: {}, ...JSON.parse(JSON.stringify(real)), customEx: [{ id: 'c_riscaldamento', n: 'Riscaldamento', kind: 'check' }] })
 const r1 = () => ({ id: 'r1', name: 'Gambe + Spalle', ex: [{ id: 'c_riscaldamento', sets: 1, reps: 0 }, { id: '0585', sets: 3, reps: 10 }, { id: '0739', sets: 3, reps: 8 }] })
@@ -103,4 +103,23 @@ it('renameEntry swaps the id in place and keeps the ticked sets; into an existin
   expect(c.entries.find(e => e.id === '0739').sets.filter(x => x.done).length).toBe(1)
   expect(c.entries.some(e => e.id === 'c_new')).toBe(false)
   expect(renameEntry(a, 'c_new', 'c_new')).toBe(a)
+})
+
+it('nextOpen(from) looks below the given entry first, then wraps', () => {
+  let a = startSession(S(), r1(), 0)
+  expect(nextOpen(a, '0585')).toBe('0739')
+  expect(nextOpen(a, '0739')).toBe('c_riscaldamento')
+})
+
+it('replaceEntry swaps in place; ticked sets stay logged on the old entry, new one right after', () => {
+  let a = startSession(S(), r1(), 0)
+  a = replaceEntry(S(), a, '0585', '0739x')
+  expect(a.entries.map(e => e.id)).toEqual(['c_riscaldamento', '0739x', '0739'])
+  expect(a.openId).toBe('0739x')
+  a = toggleSet(a, '0739', 0)
+  a = replaceEntry(S(), a, '0739', 'zz')
+  expect(a.entries.map(e => e.id)).toEqual(['c_riscaldamento', '0739x', '0739', 'zz'])
+  expect(a.entries[2].sets).toEqual([{ w: 80, r: 9, done: true }])
+  // already in the session: just open it
+  expect(replaceEntry(S(), a, 'zz', '0739x')).toMatchObject({ openId: '0739x', entries: a.entries })
 })

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast as sonner } from 'sonner'
 import { uid } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { api } from '../lib/api.js'
@@ -10,7 +11,6 @@ import { useStore } from './useStore.js'
 const pushRestTimer = sec => { if (useStore.getState().user) api('/api/push/rest-timer', { method: 'POST', body: JSON.stringify({ seconds: sec }) }).catch(() => {}) }
 const cancelPushRestTimer = () => { if (useStore.getState().user) api('/api/push/rest-timer/cancel', { method: 'POST', body: '{}' }).catch(() => {}) }
 
-let toastTm = null
 let timerInt = null
 let timerTick = null
 let workInt = null
@@ -19,7 +19,6 @@ let workDone = null
 
 export const useUI = create((set, get) => ({
   sheets: [],          // { id, render:(close)=>JSX, kind:'sheet'|'center', locked }
-  toastMsg: '',
   timer: null,         // rest countdown between sets — { left, total, endsAt }
   work: null,          // work countdown DURING a timed set (issue #16) — { left, total, endsAt, label }
 
@@ -29,13 +28,16 @@ export const useUI = create((set, get) => ({
     const close = () => get().closeSheet(id)
     return { id, close, lock: v => set(s => ({ sheets: s.sheets.map(x => x.id === id ? { ...x, locked: v } : x) })) }
   },
-  closeSheet(id) { set(s => ({ sheets: s.sheets.filter(x => x.id !== id) })) },
+  closeSheet(id) {
+    set(s => ({ sheets: s.sheets.map(x => x.id === id ? { ...x, closing: true } : x) }))
+    setTimeout(() => set(s => ({ sheets: s.sheets.filter(x => x.id !== id) })), 200)
+  },
   closeAll() { set({ sheets: [] }) },
 
-  toast(msg) {
-    set({ toastMsg: msg })
-    clearTimeout(toastTm)
-    toastTm = setTimeout(() => set({ toastMsg: '' }), 2200)
+  // act = { label, run }: an "Annulla" button on the toast, kept up longer so there is time to tap it
+  toast(msg, act = null) {
+    if (!msg) return sonner.dismiss()
+    sonner(msg, act ? { duration: 5000, action: { label: act.label, onClick: act.run } } : { duration: 2200 })
   },
 
   startRest(sec) {
@@ -51,7 +53,13 @@ export const useUI = create((set, get) => ({
       const snd = useStore.getState().S.sound
       if (left <= 0) {
         beep(snd, 880, 0.15); beep(snd, 880, 0.15, 0.25); beep(snd, 1320, 0.4, 0.5)
-        vibrate([200, 100, 200]); get().toast(t('Rest over — next set!')); get().stopRest(); return
+        vibrate([200, 100, 200])
+        // On the workout screen the strip itself says "Via!"; elsewhere the toast is the only sign.
+        if (location.hash !== '#/allenamento') get().toast(t('Rest over — next set!'))
+        // The strip stays (as "over") so the layout under it does not jump; Skip or the next set clears it.
+        clearInterval(timerInt); timerInt = null
+        document.removeEventListener('visibilitychange', timerTick); timerTick = null
+        set({ timer: { ...tm, left: 0, over: true } }); return
       }
       if (left <= 3) beep(snd, 660, 0.1)
       set({ timer: { ...tm, left } })
@@ -61,7 +69,7 @@ export const useUI = create((set, get) => ({
   },
   addRest(sec) {
     const tm = get().timer
-    if (!tm) return
+    if (!tm || tm.over) return
     const left = tm.left + sec
     // taking off more than is left means "I'm ready now" — same as skipping, and it keeps a
     // negative duration out of both the progress bar and the server-side push schedule
@@ -72,7 +80,7 @@ export const useUI = create((set, get) => ({
   stopRest() {
     if (timerInt) clearInterval(timerInt); timerInt = null
     if (timerTick) document.removeEventListener('visibilitychange', timerTick); timerTick = null
-    if (get().timer) cancelPushRestTimer()
+    if (get().timer && !get().timer.over) cancelPushRestTimer()
     set({ timer: null })
   },
 

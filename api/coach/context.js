@@ -46,7 +46,8 @@ export function buildContext(S, today) {
   return {
     oggi: today,
     profilo: S.coach?.profile || null,
-    schede: (S.routines || []).map(r => ({ nome: r.name, esercizi: (r.ex || []).map(e => `${nameOf(S, e.id)} ${e.sets}×${e.reps}`) })),
+    // ids too: the coach edits a routine by its id and keeps an exercise by its id
+    schede: (S.routines || []).map(r => ({ id: r.id, nome: r.name, tipo: r.cat || (r.rec ? 'mob' : 'forza'), esercizi: (r.ex || []).map(e => ({ id: e.id, nome: nameOf(S, e.id), serie: e.sets, rip: e.reps })) })),
     esercizi,
     ultimiAllenamenti: (S.workouts || []).slice(-10).map(w => ({
       data: w.d, scheda: w.name, minuti: w.end && w.start ? Math.round((w.end - w.start) / 60000) : null,

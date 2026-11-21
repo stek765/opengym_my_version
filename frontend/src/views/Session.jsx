@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { displayName, lastSession, measureOf, increaseOffer, finishSession } from '../lib/training.js'
-import { setValue, toggleSet, addSet, skipEntry, addEntry, answerOffer, renameEntry, settle, openEntry, removeEntry, removeSet } from '../lib/session.js'
+import { setValue, toggleSet, addSet, skipEntry, addEntry, answerOffer, renameEntry, settle, openEntry, removeSet, replaceEntry, nextOpen } from '../lib/session.js'
 import { num } from '../lib/format.js'
-import { EXIDX, imgSrc } from '../lib/exercises.js'
 import { openNumber } from '../components/NumberSheet.jsx'
 import { openPicker } from '../components/ExercisePicker.jsx'
 import { confirmAsk, promptAsk, useLongPress } from '../components/ask.jsx'
@@ -15,20 +14,22 @@ import RestStrip from '../components/RestStrip.jsx'
 import MuscleTag from '../components/MuscleTag.jsx'
 import Icon from '../components/Icon.jsx'
 import Thumb from '../components/Thumb.jsx'
+import HowTo from '../components/HowTo.jsx'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { t } from '../lib/i18n.js'
+import { unlockAudio } from '../lib/sound.js'
+import { haptic } from '../lib/haptic.js'
 
-function Clock({ start }) {
+export function Clock({ start }) {
   const [, tick] = useState(0)
   useEffect(() => { const i = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(i) }, [])
   const s = Math.floor((Date.now() - start) / 1000)
   return <>{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</>
 }
 
-const delta = (v, prev) => {
-  if (v == null || prev == null) return null
-  const d = Math.round((v - prev) * 100) / 100
-  return d > 0 ? <span className="up">+{num(d)}</span> : d < 0 ? <span className="dn">−{num(-d)}</span> : null
-}
+// Above or below last time's set: the value itself turns green or red, the pill keeps its size.
+const trend = (v, prev) => v == null || prev == null || v === prev ? '' : v > prev ? ' text-success' : ' text-destructive'
 
 function Name({ S, id, className }) {
   const update = useStore(s => s.update)
@@ -36,69 +37,100 @@ function Name({ S, id, className }) {
   return <div className={className} {...press}>{displayName(S, id)}</div>
 }
 
-function OpenEntry({ S, e, upd, prev }) {
+const VAL = 'flex h-12 min-w-0 flex-1 items-baseline justify-center gap-1 rounded-xl bg-foreground/10 pt-2.5 text-[21px] font-semibold tabular-nums transition-colors active:bg-foreground/20'
+const UNIT = 'text-[13px] font-medium text-muted-foreground'
+
+function OpenEntry({ S, e, upd, prev, next, finish }) {
   const update = useStore(s => s.update)
   const startRest = useUI(s => s.startRest)
   const [hint, setHint] = useState('')
+  const [popped, setPopped] = useState(-1)   // the set just ticked: only its check pops
   const feel = () => { setHint('…'); cue(e.id).then(r => setHint(r.text)).catch(err => setHint(t(err.message || 'Coach non raggiungibile'))) }
   const measure = measureOf(S, e.id)
   const last = lastSession(S, e.id)
   const offer = e.offer === undefined ? increaseOffer(S, e.id) : null
   const showW = measure !== 'reps' || e.sets.some(s => s.w > 0)
   const name = displayName(S, e.id)
-  const ex = EXIDX[e.id]
   const edit = (i, field) => openNumber({
     title: `${name} · ${t('serie')} ${i + 1} · ${t(field === 'w' ? 'peso' : 'ripetizioni')}`,
     value: e.sets[i][field], field, later: e.sets.some((s, j) => j > i && !s.done),
     onDone: (v, later) => upd(a => setValue(a, e.id, i, field, v, later))
   })
   const tick = i => {
+    unlockAudio(); haptic()
+    setPopped(e.sets[i].done ? -1 : i)
     upd(a => toggleSet(a, e.id, i))
     if (!e.sets[i].done) startRest(S.restSec || 90)
+    else if (useUI.getState().timer?.over) useUI.getState().stopRest()
   }
+  const swap = () => openPicker({
+    S,
+    onPick: id => upd(a => replaceEntry(S, a, e.id, id)),
+    onCreate: n => {
+      const id = newExercise(n, (from, to) => update(s => { if (s.active) s.active = renameEntry(s.active, from, to) }))
+      update(s => { s.active = replaceEntry(s, s.active, e.id, id) })
+    }
+  })
+  const allDone = e.sets.length > 0 && e.sets.every(s => s.done)
   const answer = inc => {
     upd(a => answerOffer(a, e.id, inc))
     if (inc) update(s => { s.incr = { ...s.incr, [e.id]: inc } })
   }
-  return <div className="ex-open">
-    <div className={'pic' + (ex?.img ? '' : ' none')}>
-      {ex?.img && <img src={imgSrc(ex)} alt="" onError={e => { e.currentTarget.style.visibility = 'hidden' }} />}
-      <MuscleTag S={S} id={e.id} />
-      {!hint && <button className="chip cuebtn" onClick={feel}><Icon name="sparkles" />{t('Cosa sentire?')}</button>}
-    </div>
-    <div className="body">
-      {prev && <button className="chip backto" onClick={() => upd(a => openEntry(a, prev))}><Icon name="chevronLeft" />{t('Torna a {0}', displayName(S, prev))}</button>}
-      <Name S={S} id={e.id} className="name" />
-      {offer ? <div className="offer">
-        <div className="q">{t("L'ultima volta {0} kg × {1}. Sali?", num(offer.last[0].w), offer.last.map(s => s.r).join(', '))}</div>
-        <div className="chips">
-          {[1, 2.5, 5].map(inc => <button key={inc} className={inc === offer.preferred ? 'pref' : ''} onClick={() => answer(inc)}>+{num(inc)}</button>)}
-          <button onClick={() => answer(0)}>{t('No')}</button>
+  return <section className="mb-4 overflow-hidden rounded-2xl bg-card px-4 pb-4 pt-3">
+    {prev && <Button variant="ghost" size="sm" className="-ml-2 mb-1 max-w-full px-2 text-tinta" onClick={() => upd(a => openEntry(a, prev))}>
+      <Icon name="chevronLeft" size={16} /><span className="truncate">{t('Torna a {0}', displayName(S, prev))}</span>
+    </Button>}
+    {/* the drawing big on top, like the first version he used */}
+    <HowTo id={e.id} className="mb-3" />
+    <div className="flex items-start gap-3">
+      <div className="min-w-0 flex-1">
+        <Name S={S} id={e.id} className="text-[20px] font-semibold leading-snug select-none" />
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <MuscleTag S={S} id={e.id} readOnly />
+          {!hint && <button className="inline-flex h-6 items-center gap-1 text-[13px] font-medium text-tinta active:opacity-60" onClick={feel}>
+            <Icon name="sparkles" size={14} />{t('Cosa sentire?')}
+          </button>}
         </div>
-      </div> : last && <div className="goal">{t("L'ultima volta {0}", last.sets.map(s => measure === 'kg' ? `${num(s.w)} × ${s.r}` : s.r).join(' · '))}</div>}
-      {hint && <div className="cue">{hint}</div>}
-      <div className="sets">
-        {e.sets.map((s, i) => {
-          const p = last?.sets[i]
-          return <div key={i} className={'set' + (showW ? '' : ' reps') + (s.done ? ' done' : '')}>
-            <span className="i">{i + 1}</span>
-            {showW && <button className="v" onClick={() => edit(i, 'w')}>{num(s.w)}<small>kg</small>{delta(s.w, p?.w)}</button>}
-            <button className="v" onClick={() => edit(i, 'r')}>{s.r ?? '—'}<small>{t('rip')}</small>{delta(s.r, p?.r)}</button>
-            <button className={'chk' + (s.done ? ' on' : '')} aria-label={t(s.done ? 'Annulla serie' : 'Fatta')} onClick={() => tick(i)}><Icon name="check" /></button>
-          </div>
-        })}
-      </div>
-      <RestStrip />
-      <div className="acts">
-        <button onClick={() => upd(a => addSet(a, e.id))}>+ {t('Serie')}</button>
-        {e.sets.length > 1 && e.sets.some(s => !s.done) && <button onClick={() => upd(a => removeSet(a, e.id))}>− {t('Serie')}</button>}
-        {!showW && <button onClick={() => edit(Math.max(0, e.sets.findIndex(s => !s.done)), 'w')}>+ {t('Peso')}</button>}
-        {e.sets.some(s => s.done)
-          ? <button onClick={() => upd(a => skipEntry(a, e.id))}>{t('Salta esercizio')}</button>
-          : <button onClick={() => upd(a => removeEntry(a, e.id))}>{t("Togli dall'allenamento")}</button>}
       </div>
     </div>
-  </div>
+    {hint && <p className="mt-3 flex gap-2 text-[15px] leading-snug text-muted-foreground"><Icon name="sparkles" size={16} className="mt-0.5 shrink-0 text-tinta" />{hint}</p>}
+    {offer && <div className="mt-3">
+      <div className="mb-2 text-[13px] text-muted-foreground">{t("L'ultima volta {0} kg × {1}. Sali?", num(offer.last[0].w), offer.last.map(s => s.r).join(', '))}</div>
+      <div className="flex gap-2">
+        {[1, 2.5, 5].map(inc => <Button key={inc} size="sm" variant={inc === offer.preferred ? 'tinted' : 'secondary'} className="flex-1 tabular-nums" onClick={() => answer(inc)}>+{num(inc)}</Button>)}
+        <Button size="sm" variant="ghost" className="flex-1 text-muted-foreground" onClick={() => answer(0)}>{t('No')}</Button>
+      </div>
+    </div>}
+    {!offer && last && <div className="mt-2 text-[14px] tabular-nums text-muted-foreground">{t("L'ultima volta {0}", last.sets.map(x => measure === 'kg' ? `${num(x.w)} × ${x.r}` : x.r).join(' · '))}</div>}
+    {/* one row per set: number, kg, reps, an empty circle that turns yellow with a check when done */}
+    <div className="-mx-2 mt-3 flex flex-col gap-1.5">
+      {e.sets.map((s, i) => {
+        const p = last?.sets[i]
+        return <div key={i} className={'flex items-center gap-2 rounded-xl px-2 py-1 transition-colors duration-200' + (s.done ? ' bg-success/15' : '')}>
+          <span className="w-6 shrink-0 text-center text-[15px] font-semibold tabular-nums text-muted-foreground">{i + 1}</span>
+          {showW && <button className={VAL + trend(s.w, p?.w)} aria-label={t('peso')} onClick={() => edit(i, 'w')}>{num(s.w)}<small className={UNIT}>kg</small></button>}
+          <button className={VAL + trend(s.r, p?.r)} aria-label={t('ripetizioni')} onClick={() => edit(i, 'r')}>{s.r ?? '—'}<small className={UNIT}>{t('rip')}</small></button>
+          <button className="flex size-12 shrink-0 items-center justify-center" aria-label={t(s.done ? 'Annulla serie' : 'Fatta')} onClick={() => tick(i)}>
+            <span className={'flex size-10 items-center justify-center rounded-full transition-colors ' + (s.done ? 'bg-success text-primary-foreground' : 'border-2 border-foreground/30 text-transparent') + (s.done && popped === i ? ' animate-[pop_.24s_ease-out]' : '')}>
+              <Icon name="check" size={20} strokeWidth={3} />
+            </span>
+          </button>
+        </div>
+      })}
+    </div>
+    <RestStrip />
+    {/* Every button always sits in the same place: "− Serie" greys out instead of disappearing. */}
+    <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => upd(a => addSet(a, e.id))}><Icon name="plus" size={16} />{t('Serie')}</Button>
+    <div className="mt-1 flex">
+      <Button variant="ghost" className="flex-1 px-1 text-muted-foreground" disabled={e.sets.length < 2 || allDone} onClick={() => upd(a => removeSet(a, e.id))}><Icon name="minus" size={16} />{t('Serie')}</Button>
+      {!showW && <Button variant="ghost" className="flex-1 px-1 text-muted-foreground" onClick={() => edit(Math.max(0, e.sets.findIndex(s => !s.done)), 'w')}><Icon name="plus" size={16} />{t('Peso')}</Button>}
+      <Button variant="ghost" className="flex-1 px-1 text-muted-foreground" onClick={swap}><Icon name="swap" size={16} />{t('Cambia')}</Button>
+      <Button variant="ghost" className="flex-1 px-1 text-muted-foreground" onClick={() => upd(a => skipEntry(a, e.id))}><Icon name="skip" size={16} />{t('Salta')}</Button>
+    </div>
+    {allDone && (next
+      ? <Button size="lg" className="mt-2 w-full justify-start duration-200 animate-in fade-in" onClick={() => upd(a => openEntry(a, next))}><Thumb id={next} size={28} className="rounded-md" /><span className="truncate">{t('Prossimo: {0}', displayName(S, next))}</span></Button>
+      : <Button size="lg" className="mt-2 w-full duration-200 animate-in fade-in" onClick={finish}><Icon name="check" />{t('Fine allenamento')}</Button>)}
+  </section>
 }
 
 function summary(S, e) {
@@ -113,19 +145,22 @@ export default function Session() {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const stopRest = useUI(s => s.stopRest)
+  // finish() navigates to the summary and then clears S.active: that re-render must not
+  // redirect to /allenati on top of it (it did, and the summary never showed).
+  const leaving = useRef(false)
   const A = S.active
-  if (!A) return <Navigate to="/allenati" replace />
+  if (!A) return leaving.current ? null : <Navigate to="/allenati" replace />
   const upd = fn => update(s => { s.active = settle(fn(s.active)) })
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = A.entries.reduce((n, e) => n + e.sets.filter(s => s.done).length, 0)
-  const allDone = A.entries.every(e => 'check' in e || e.skipped || e.sets.every(s => s.done))
 
   const finish = () => {
     const w = finishSession(A)
+    leaving.current = true
     stopRest()
     // Nothing ticked: a stray tap must not leave an empty day in the calendar.
     if (!w.entries.length) { nav('/allenati', { replace: true }); update(s => { s.active = null }); return }
-    nav('/storico/' + w.id, { replace: true })
+    nav('/storico/' + w.id, { replace: true, state: { back: '/allenati' } })
     update(s => { s.workouts.push(w); s.active = null })
     // The coach comment is a bonus: a slow or failed coach never holds up the finish.
     useStore.getState().pushState().then(() => afterWorkout(w.id)).catch(() => {})
@@ -139,37 +174,77 @@ export default function Session() {
     }
   })
 
+  // One row of the grouped list for every exercise that is not open; consecutive rows share a card.
+  const row = e => {
+    const R = 'group flex w-full items-center gap-3 pl-4 text-left active:bg-foreground/5'
+    const IN = 'flex min-h-[60px] min-w-0 flex-1 items-center gap-3 border-t border-border py-2 pr-4 group-first:border-t-0'
+    const ok = <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-success text-primary-foreground"><Icon name="check" size={14} strokeWidth={3} /></span>
+    if ('check' in e) return <button key={e.id} className={R} onClick={() => upd(a => toggleSet(a, e.id))}>
+      <Thumb id={e.id} size={40} icon="flame" />
+      <span className={IN}><span className="flex-1 truncate text-[16px]">{displayName(S, e.id)}</span>
+        {e.check ? ok : <span className="size-6 shrink-0 rounded-full border-2 border-muted-foreground/40" />}</span>
+    </button>
+    if (e.skipped) return <button key={e.id} className={R} onClick={() => upd(a => skipEntry(a, e.id))}>
+      <Thumb id={e.id} size={40} className="opacity-40" />
+      <span className={IN}><span className="flex-1 truncate text-[16px] text-muted-foreground line-through">{displayName(S, e.id)}</span>
+        <span className="shrink-0 text-[13px] text-tinta">{t('ripristina')}</span></span>
+    </button>
+    const nd = e.sets.filter(s => s.done).length
+    const exDone = nd > 0 && nd === e.sets.length
+    return <button key={e.id} className={R} onClick={() => upd(a => openEntry(a, e.id))}>
+      <Thumb id={e.id} size={40} />
+      <span className={IN}>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[16px]">{displayName(S, e.id)}</span>
+          <span className="block truncate text-[13px] tabular-nums text-muted-foreground">{summary(S, e)}</span>
+        </span>
+        {nd > 0 && !exDone && <Badge variant="secondary" className="h-6 px-2 text-[13px] tabular-nums text-muted-foreground">{nd}/{e.sets.length}</Badge>}
+        {exDone ? ok : <Icon name="chevronRight" size={18} className="shrink-0 text-muted-foreground/60" />}
+      </span>
+    </button>
+  }
+  const blocks = []
+  for (const e of A.entries) {
+    if (e.id === A.openId && !e.skipped) blocks.push(e)
+    else if (Array.isArray(blocks.at(-1))) blocks.at(-1).push(e)
+    else blocks.push([e])
+  }
+
+  // Termina asks: save what's done, or throw the session away (he never found a separate cancel button).
+  const discard = () => { stopRest(); update(s => { s.active = null }); nav('/allenati') }
+  const end = () => useUI.getState().openSheet(close => <div>
+    <div className="text-lg font-semibold">{t('Terminare l’allenamento?')}</div>
+    <div className="mb-5 mt-1 text-[15px] text-muted-foreground">{t('{0} di {1} serie', done, total)}</div>
+    {done > 0 && <Button size="lg" className="w-full" onClick={() => { close(); finish() }}><Icon name="check" />{t('Termina e salva')}</Button>}
+    <Button size="lg" variant="secondary" className="mt-2 w-full" onClick={close}>{t('Continua')}</Button>
+    <Button variant="ghost" className="mt-4 w-full text-destructive hover:text-destructive" onClick={() => { close(); done ? confirmAsk(t('Annullare l’allenamento? Le serie segnate si perdono.'), t('Scarta'), discard, { danger: true, cancelText: t('Continua') }) : discard() }}><Icon name="trash" />{t('Annulla sessione')}</Button>
+  </div>)
+
   return <div className="narrow">
-    <div className="s-hd">
-      <button className="iconbtn" aria-label={t("Indietro, l'allenamento resta aperto")} onClick={() => nav('/allenati')}><Icon name="chevronLeft" /></button>
-      <div className="t"><b>{A.name}</b><small>{t('{0} di {1} serie', done, total)}</small></div>
-      <span className="clk"><Clock start={A.start} /></span>
-      <button className="iconbtn" aria-label={t('Annulla allenamento')} onClick={() => confirmAsk(t('Annullare l’allenamento? Le serie segnate si perdono.'), t('Annulla allenamento'), () => { stopRest(); update(s => { s.active = null }); nav('/allenati') })}><Icon name="xmark" /></button>
-    </div>
-    <div className="s-prog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
-    {A.entries.map(e => {
-      if ('check' in e && e.id === A.openId) return <div key={e.id} className="ex-open warm">
-        <div className="body">
-          <div className="row"><span className="thumb none" style={{ width: 44, height: 44 }}><Icon name="flame" size={22} /></span><div className="name grow">{displayName(S, e.id)}</div></div>
-          <div className="goal">{t('Si parte da qui. Quando hai finito, segnalo.')}</div>
-          <button className="btn primary" style={{ marginTop: 14 }} onClick={() => upd(a => toggleSet(a, e.id))}><Icon name="check" />{t('Fatto')}</button>
+    <header className="glassbar sticky top-0 z-20 -mx-4 bg-background/85 pt-[var(--sat)] backdrop-blur-xl">
+      <div className="flex h-[52px] items-center gap-1 px-2">
+        <Button variant="ghost" size="icon" className="text-tinta" aria-label={t("Indietro, l'allenamento resta aperto")} onClick={() => nav('/allenati')}><Icon name="chevronLeft" size={26} /></Button>
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-[17px] font-semibold">{A.name}</div>
+          <div className="truncate text-[13px] tabular-nums text-muted-foreground"><Clock start={A.start} /> · {t('{0} di {1} serie', done, total)}</div>
         </div>
+        <Button size="sm" className="mr-2 rounded-full px-4 text-[15px] font-semibold" onClick={end}>{t('Finish')}</Button>
       </div>
-      if ('check' in e) return <button key={e.id} className={'mini' + (e.check ? ' done' : '')} onClick={() => upd(a => toggleSet(a, e.id))}>
-        <Thumb id={e.id} size={32} icon="flame" /><span className="grow">{displayName(S, e.id)}</span><span className={'chk' + (e.check ? ' on' : '')}><Icon name="check" size={14} /></span>
-      </button>
-      if (e.skipped) return <button key={e.id} className="mini done" onClick={() => upd(a => skipEntry(a, e.id))}>
-        <Thumb id={e.id} size={32} /><span className="grow skipd">{displayName(S, e.id)}</span><small>{t('ripristina')}</small>
-      </button>
-      if (e.id === A.openId) return <OpenEntry key={e.id} S={S} e={e} upd={upd} prev={A.prevId && A.prevId !== e.id && A.entries.some(x => x.id === A.prevId && !x.skipped && !('check' in x) && x.sets.some(t => !t.done)) ? A.prevId : null} />
-      const exDone = e.sets.length && e.sets.every(s => s.done)
-      return <button key={e.id} className={'mini' + (exDone ? ' done' : '')} onClick={() => upd(a => openEntry(a, e.id))}>
-        <Thumb id={e.id} size={32} /><span className="grow">{displayName(S, e.id)}</span><small>{summary(S, e)}</small>
-      </button>
-    })}
-    <div className="endacts">
-      <button className="btn" onClick={add}><Icon name="plus" />{t('Aggiungi esercizio')}</button>
-      <button className={'btn' + (allDone ? ' primary' : ' ghost')} onClick={finish}>{t('Fine allenamento')}</button>
+      <div className="h-0.5 bg-border"><i className="block h-full origin-left bg-primary transition-transform duration-300" style={{ transform: `scaleX(${total ? done / total : 0})` }} /></div>
+    </header>
+    <div className="pt-4">
+      {blocks.map(b => {
+        if (Array.isArray(b)) return <div key={'g' + b[0].id} className="mb-4 overflow-hidden rounded-2xl bg-card">{b.map(row)}</div>
+        const e = b
+        if ('check' in e) return <section key={e.id} className="mb-4 rounded-2xl bg-card p-4">
+          <div className="flex items-center gap-3"><Thumb id={e.id} size={48} icon="flame" /><Name S={S} id={e.id} className="flex-1 text-[17px] font-semibold text-tinta select-none" /></div>
+          <p className="mt-2 text-[15px] text-muted-foreground">{t('Si parte da qui. Quando hai finito, segnalo.')}</p>
+          <Button size="lg" className="mt-4 w-full" onClick={() => upd(a => toggleSet(a, e.id))}><Icon name="check" />{t('Fatto')}</Button>
+        </section>
+        return <OpenEntry key={e.id} S={S} e={e} upd={upd} next={nextOpen(A, e.id)} finish={finish} prev={A.prevId && A.prevId !== e.id && A.entries.some(x => x.id === A.prevId && !x.skipped && !('check' in x) && x.sets.some(t => !t.done)) ? A.prevId : null} />
+      })}
+      {/* dark like the cards: tinted (yellow on yellow) vanished into the workout background */}
+      <Button size="lg" className="w-full bg-card text-foreground hover:bg-card" onClick={add}><Icon name="plus" />{t('Aggiungi esercizio')}</Button>
     </div>
   </div>
 }

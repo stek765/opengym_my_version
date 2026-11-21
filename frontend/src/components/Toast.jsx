@@ -1,5 +1,6 @@
-import { useUI } from '../store/useUI.js'
+import { Toaster } from '@/components/ui/sonner'
+
+// Toasts are sonner's (useUI.toast calls it); this only places them above the tab bar.
 export default function Toast() {
-  const msg = useUI(s => s.toastMsg)
-  return <div id="toast" className={msg ? 'show' : ''}>{msg}</div>
+  return <Toaster position="bottom-center" offset={{ bottom: 'calc(var(--tab) + var(--bot) + 12px)' }} mobileOffset={{ bottom: 'calc(var(--tab) + var(--bot) + 12px)' }} />
 }

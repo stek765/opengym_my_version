@@ -1,5 +1,6 @@
 /* HTTP surface for the coach — user routes and the admin's credential routes.
  * A factory over server.js's own helpers, so this module has no import cycle. */
+import fs from 'node:fs';
 import * as cfgStore from './config.js';
 import * as oauth from './oauth.js';
 import * as jobs from './jobs.js';
@@ -26,16 +27,16 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
 
     'POST /api/coach/chat/clear': async (req, res) => {
       const u = user(req, res); if (!u) return;
-      const { kind } = await readBody(req);
-      jobs.clearChat(u.id, String(kind || 'chat'));
+      const { kind, sid } = await readBody(req);
+      jobs.clearChat(u.id, String(kind || 'chat'), sid ? String(sid).slice(0, 40) : undefined);
       json(res, 200, { ok: true });
     },
 
     'POST /api/coach/ask': async (req, res) => {
       const u = user(req, res); if (!u) return;
-      const { text } = await readBody(req);
+      const { text, sid } = await readBody(req);
       if (!String(text || '').trim()) return json(res, 400, { error: 'scrivi qualcosa' });
-      try { json(res, 200, await jobs.ask(u.id, String(text).slice(0, 4000))); } catch (e) { fail(res, e); }
+      try { json(res, 200, await jobs.ask(u.id, String(text).slice(0, 4000), String(sid || 'old').slice(0, 40))); } catch (e) { fail(res, e); }
     },
 
     'POST /api/coach/cue': async (req, res) => {
@@ -58,13 +59,29 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       json(res, 202, { ok: true });
     },
 
-    // A PDF from the nutritionist, as base64 JSON (the body limit keeps it to a few MB).
+    // A PDF (diet, lab results), as base64 JSON: a phone scan is often over the global 5 MB body limit.
     'POST /api/coach/files': async (req, res) => {
       const u = user(req, res); if (!u) return;
-      const { name, data } = await readBody(req);
+      const { name, data } = await readBody(req, 20 * 1024 * 1024);
       const buf = Buffer.from(String(data || ''), 'base64');
       if (buf.subarray(0, 5).toString() !== '%PDF-') return json(res, 400, { error: 'serve un PDF' });
       json(res, 200, { name: jobs.saveFile(u.id, name, buf), files: jobs.listFiles(u.id) });
+    },
+
+    // Opens one of his PDFs in the browser (a plain link: the session cookie comes along).
+    'GET /api/coach/file': async (req, res) => {
+      const u = user(req, res); if (!u) return;
+      const name = new URL(req.url, 'http://x').searchParams.get('name') || '';
+      const p = jobs.filePath(u.id, name);
+      if (!p) return json(res, 404, { error: 'file non trovato' });
+      res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      fs.createReadStream(p).pipe(res);
+    },
+
+    'POST /api/coach/files/delete': async (req, res) => {
+      const u = user(req, res); if (!u) return;
+      const { name } = await readBody(req);
+      json(res, 200, { files: jobs.deleteFile(u.id, String(name || '')) });
     },
 
     /* ------------------------------ admin ------------------------------ */

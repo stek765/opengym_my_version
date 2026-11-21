@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useUI } from '../store/useUI.js'
 
+const BACK = 'fixed inset-0 z-50 bg-black/60 duration-200 fill-mode-forwards animate-in fade-in'
+
 // One bottom sheet (or centered dialog) with swipe-to-dismiss.
 function Sheet({ sheet }) {
   const { closeSheet } = useUI()
@@ -48,16 +50,17 @@ function Sheet({ sheet }) {
   if (sheet.kind === 'center') {
     return (
       <div>
-        <div className="mback" onClick={() => { if (!sheet.locked) close() }} />
-        <div className="center">{sheet.render(close)}</div>
+        <div className={BACK + (sheet.closing ? ' animate-out fade-out' : '')} onClick={() => { if (!sheet.locked) close() }} />
+        <div className={'fixed inset-x-6 top-1/3 z-50 rounded-2xl bg-card p-5 duration-200 ' + (sheet.closing ? 'animate-out fade-out zoom-out-95 fill-mode-forwards' : 'animate-in fade-in zoom-in-95')}>{sheet.render(close)}</div>
       </div>
     )
   }
   return (
     <div>
-      <div className="mback" onClick={() => { if (!sheet.locked) close() }} />
-      <div className="sheet" ref={ref} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <div className="grab" />
+      <div className={BACK + (sheet.closing ? ' animate-out fade-out' : '')} onClick={() => { if (!sheet.locked) close() }} />
+      <div ref={ref} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+        className={'fixed inset-x-0 bottom-[var(--kb)] z-50 mx-auto max-h-[calc(90vh-var(--kb))] max-w-[560px] overflow-y-auto rounded-t-[28px] bg-popover text-popover-foreground px-5 pt-2 pb-[calc(var(--bot)+20px)] shadow-2xl ease-out ' + (sheet.closing ? 'animate-out slide-out-to-bottom fill-mode-forwards duration-200' : 'animate-in slide-in-from-bottom duration-300')}>
+        <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-muted-foreground/40" />
         {sheet.render(close)}
       </div>
     </div>
@@ -81,7 +84,7 @@ export default function Modals() {
 
   if (!sheets.length) return null
   return (
-    <div id="modal-root" className="open">
+    <div id="modal-root">
       {sheets.map(s => <Sheet key={s.id} sheet={s} />)}
     </div>
   )

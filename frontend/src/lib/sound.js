@@ -1,9 +1,13 @@
 // WebAudio beeps + haptics (ported from the vanilla app). `enabled` gates sound.
 let audioCtx = null
+const ctx = () => audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)())
+// iOS keeps an AudioContext suspended unless it is created/resumed inside a tap, and the rest
+// beep fires from a timer: so every set tick calls this first.
+export function unlockAudio() { try { if (ctx().state !== 'running') audioCtx.resume() } catch (e) { /* */ } }
 export function beep(enabled, freq, dur, when) {
   if (!enabled) return
   try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)()
+    ctx()
     const o = audioCtx.createOscillator(), g = audioCtx.createGain()
     o.connect(g); g.connect(audioCtx.destination)
     o.frequency.value = freq || 880; o.type = 'sine'

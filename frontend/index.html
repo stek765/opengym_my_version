@@ -5,24 +5,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>openGym</title>
 <meta name="description" content="Personal gym & body weight tracker">
-<meta name="theme-color" content="#1c9585">
+<meta name="theme-color" content="#012439">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<!-- "black" (opaque): the page starts below the status bar and fills the screen down to the bottom edge.
-     With "black-translucent" iOS declared the page 47px shorter than the screen and cut it off at the bottom. -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<!-- "black-translucent": the page runs under the clock like a normal app (21/11, his request). iOS then may
+     stop drawing the page --gap px above the bottom edge: that band shows the html background (--top, set with
+     the section), and the tab bar sits on it like an app's bottom bar (see --bot in index.css). -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="openGym">
-<!-- iOS paints the status strip from the very first frame of a page load. The auto-update reload lands on
-     whatever screen is open, so its colour class must be on <html> before React runs (same classes and
-     --top colours as App.jsx / index.css). -->
+<!-- iOS paints the status strip from the first frame: after a reload on any screen it must already have that
+     section's colour (stripOf() in components/Fondo.jsx) before React runs. -->
 <script>
 (function () {
-  var h = location.hash, c = h.indexOf('#/allenamento') === 0 ? ['workout', '#facc15']
-    : (h.indexOf('#/coach') === 0 || h.indexOf('#/impostazioni') === 0) ? ['rosa', '#7a5a45']
-    : h.indexOf('#/progressi') === 0 ? ['ocean', '#1d70b9'] : null
-  if (!c) return
-  document.documentElement.classList.add(c[0])
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', c[1])
+  var h = location.hash, c = h.indexOf('#/allenamento') === 0 ? '#4a3100' : h.indexOf('#/progressi') === 0 ? '#052321'
+    : (h.indexOf('#/coach') === 0 || h.indexOf('#/impostazioni') === 0) ? '#300511' : '#012439'
+  document.documentElement.style.background = c
+  document.documentElement.style.setProperty('--top', c)
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', c)
 })()
 </script>
 <link rel="manifest" href="manifest.json">

@@ -1,13 +1,12 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
-import { useUI } from './store/useUI.js'
-import { bindUI } from './components/ui.jsx'
 import { setNav } from './lib/nav.js'
 import { setLang } from './lib/i18n.js'
 import { useWakeLock } from './lib/wakelock.js'
 import TabBar from './components/TabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import Fondo from './components/Fondo.jsx'
 import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
 import Login from './views/Login.jsx'
@@ -20,8 +19,7 @@ import Choose from './views/Choose.jsx'
 import WorkoutDetail from './views/WorkoutDetail.jsx'
 import Coach from './views/Coach.jsx'
 import Settings from './views/Settings.jsx'
-
-bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
+import { RoutinePage } from './views/Routines.jsx'
 
 function Shell() {
   const navigate = useNavigate()
@@ -31,19 +29,14 @@ function Shell() {
   setLang(S.lang)
   useEffect(() => { setNav(navigate) }, [navigate])
   const inWorkout = loc.pathname === '/allenamento'
-  const inCoach = loc.pathname === '/coach' || loc.pathname === '/impostazioni'   // Settings wears the coach colours
-  const inProgress = loc.pathname.startsWith('/progressi')
-  // Layout effect, not a plain effect: the installed iOS app samples the status strip colour at the first paint
-  // after a navigation, so the new screen's colours must already be on <html> by then (it lagged one screen behind).
+  // which section is on screen: Fondo moves its colour behind the page, index.css picks the accent;
+  // set on <html> before the first paint
+  const p = loc.pathname
+  const sec = inWorkout ? 'allenamento' : p.startsWith('/progressi') ? 'esercizi' : p === '/coach' || (p === '/impostazioni' && loc.state?.back !== '/allenati') ? 'coach' : 'allenati'
   useLayoutEffect(() => {
-    const c = document.documentElement.classList
-    c.toggle('workout', inWorkout)
-    c.toggle('rosa', inCoach)
-    c.toggle('ocean', inProgress)
-    // the installed iOS app tints its status bar strip with these: keep them equal to the gradient's first colour
-    const top = getComputedStyle(document.documentElement).getPropertyValue('--top').trim()
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', top)
-  }, [inWorkout, inCoach, inProgress])
+    document.documentElement.dataset.sec = sec
+    document.documentElement.classList.toggle('allena', inWorkout)
+  }, [sec, inWorkout])
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const authed = user || isGuest
@@ -58,6 +51,7 @@ function Shell() {
               <Route path="/allenati" element={<Train />} />
               <Route path="/allenamento" element={<Session />} />
               <Route path="/progressi" element={<Progress />} />
+              <Route path="/progressi/scheda/:id" element={<RoutinePage />} />
               <Route path="/progressi/:exId" element={<ExerciseDetail />} />
               <Route path="/storico" element={<Calendar />} />
               <Route path="/inizia" element={<Choose />} />
@@ -71,6 +65,7 @@ function Shell() {
         </ErrorBoundary>
       </div>
       {authed && !inWorkout && <TabBar />}
+      {authed && <Fondo sec={sec} />}
       <Modals />
       <Toast />
     </>

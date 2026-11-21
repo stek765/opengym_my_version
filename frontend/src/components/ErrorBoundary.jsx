@@ -2,7 +2,7 @@ import { Component } from 'react'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
-import { Button } from './ui.jsx'
+import { Button } from '@/components/ui/button'
 
 /**
  * Last line of defence: one bad render used to blank the whole app, with no way back —
@@ -21,20 +21,17 @@ export default class ErrorBoundary extends Component {
     if (!this.state.failed) return this.props.children
     const active = useStore.getState().S.active
     return (
-      <div className="narrow">
-        <div className="empty" style={{ marginTop: '18vh' }}>
-          <div className="ico"><Icon name="info" /></div>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>{t('Something went wrong')}</div>
-          {t('This screen could not be drawn. Your data is safe on this device.')}
-        </div>
-        <Button variant="primary" icon="reset" onClick={() => location.reload()}>{t('Reload openGym')}</Button>
-        {active && <>
-          <div style={{ height: 8 }} />
-          <Button variant="danger" icon="trash" onClick={() => {
+      <div className="narrow flex min-h-[70vh] flex-col items-center justify-center text-center">
+        <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-raised text-muted-foreground"><Icon name="info" size={28} /></span>
+        <b className="text-[20px] font-semibold">{t('Something went wrong')}</b>
+        <p className="mb-8 mt-1 max-w-72 text-[15px] leading-snug text-muted-foreground">{t('This screen could not be drawn. Your data is safe on this device.')}</p>
+        <div className="flex w-full flex-col gap-2.5">
+          <Button size="lg" className="w-full" onClick={() => location.reload()}><Icon name="reset" />{t('Reload openGym')}</Button>
+          {active && <Button size="lg" variant="destructive" className="w-full" onClick={() => {
             useStore.getState().update(s => { s.active = null })
             location.reload()
-          }}>{t('Discard the running workout')}</Button>
-        </>}
+          }}><Icon name="trash" />{t('Discard the running workout')}</Button>}
+        </div>
       </div>
     )
   }

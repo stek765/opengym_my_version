@@ -143,6 +143,28 @@ export function setsPerMuscle(S, today, days = 30) {
 
 // Recovery routines (mobility, rehab, stretching) are done on rest days too: they never stand
 // in for a gym day — not suggested, not counted, and a gym session wins the day's colour.
+// What a routine is for, as he groups them: strength is the gym, the other two are recovery (rec).
+export const CATS = [['forza', 'Forza'], ['mob', 'Mobilità e rinforzo'], ['stretch', 'Stretching']]
+export const catOf = r => r.cat || (r.rec ? 'mob' : 'forza')
+export const setCat = (r, c) => { r.cat = c; if (c === 'forza') delete r.rec; else r.rec = true }
+// What the coach changed in his routines (already checked by the server), applied to the state.
+// A new routine takes the first colour nobody uses, as one he makes himself.
+export function applyCoachChanges(s, changes) {
+  for (const c of changes || []) {
+    for (const e of c.newEx || []) if (!(s.customEx || []).some(x => x.id === e.id)) s.customEx = [...(s.customEx || []), e]
+    const r = s.routines.find(x => x.id === c.id)
+    if (c.op === 'delete') { s.routines = s.routines.filter(x => x.id !== c.id); continue }
+    if (c.op === 'create' && !r) {
+      const used = new Set(s.routines.map(x => routineColor(s, x.id)))
+      const n = { id: c.id, name: c.name, ex: c.ex, color: PALETTE.find(x => !used.has(x)) || PALETTE[0] }
+      setCat(n, c.cat || 'forza'); s.routines.push(n); continue
+    }
+    if (!r) continue
+    if (c.name) r.name = c.name
+    if (c.ex) r.ex = c.ex
+    if (c.cat) setCat(r, c.cat)
+  }
+}
 export const isRec = (S, w) => !!(S.routines || []).find(r => r.id === w.routineId)?.rec
 // The workout that represents a day: the last gym one, else the last of any kind.
 export const mainOf = (S, list) => list && ([...list].reverse().find(w => !isRec(S, w)) || list[list.length - 1])
@@ -155,13 +177,13 @@ export function suggestedRoutine(S) {
 }
 
 // One colour per routine (by position within its group), shared by the calendar, its legend and the week strip.
-const ROUTINE_COLORS = ['#c4b5fd', '#fde68a', '#f9a8d4', '#a5f3fc', '#bbf7d0']
+const ROUTINE_COLORS = ['#93c5fd', '#fde68a', '#f9a8d4', '#a5f3fc', '#bbf7d0']
 const REC_COLORS = ['#fdba74', '#fca5a5', '#d6d3d1']
 export const PALETTE = [...ROUTINE_COLORS, ...REC_COLORS]   // the swatches in the routine editor
 export function routineColor(S, id) {
   const r = (S.routines || []).find(x => x.id === id)
   if (!r) return null
-  if (r.color) return r.color
+  if (r.color) return r.color === '#c4b5fd' ? '#93c5fd' : r.color   // the old lavender swatch is gone
   const pal = r.rec ? REC_COLORS : ROUTINE_COLORS
   const i = S.routines.filter(x => !!x.rec === !!r.rec).indexOf(r)
   return pal[i % pal.length]
