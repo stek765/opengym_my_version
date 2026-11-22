@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { getChat, askCoach, uploadPdf, clearChat, fileUrl, deleteFile } from '../lib/coach-api.js'
 import { applyCoachChanges } from '../lib/training.js'
+import { startSession } from '../lib/session.js'
 import { useUI } from '../store/useUI.js'
 import { ddmm } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -19,7 +20,14 @@ const day = at => ddmm(new Date(at).toISOString().slice(0, 10))
 // The coach writes **bold** now and then; everything else is plain text.
 const rich = t => String(t).split(/\*\*(.+?)\*\*/g).map((p, i) => (i % 2 ? <b key={i}>{p}</b> : p))
 
-const IDEE = ['Com\'è andata questa settimana?', 'Su cosa sto migliorando?', 'Cosa mangio dopo l\'allenamento?']
+const IDEE = ['Segna l\'allenamento di ieri', 'Com\'è andata questa settimana?', 'Fammi una scheda per le spalle', 'Su cosa sto migliorando?']
+// What a chip under the coach's message says and opens, per kind of change.
+const CHIP = {
+  create: ['plus', 'Creata «{0}»', c => '/progressi/scheda/' + c.id], edit: ['pencil', 'Modificata «{0}»', c => '/progressi/scheda/' + c.id], delete: ['trash', 'Eliminata «{0}»'],
+  'workout-add': ['plus', 'Allenamento aggiunto: {0}', c => '/storico/' + c.id], 'workout-edit': ['pencil', 'Allenamento corretto: {0}', c => '/storico/' + c.id], 'workout-delete': ['trash', 'Allenamento tolto: {0}'],
+  weight: ['scale', 'Peso segnato: {0}', () => '/allenati'], 'weight-delete': ['trash', 'Peso tolto: {0}'],
+  settings: ['gear', 'Impostazioni cambiate', () => '/impostazioni'], rename: ['pencil', 'Esercizio rinominato: {0}', c => '/progressi/' + c.id], start: ['play', 'Avviato «{0}»', () => '/allenamento']
+}
 
 // Chat sessions, like a browser chat. Coming back after a while (AWAY) he picks one or starts a new one;
 // within that time he lands straight back in the one he was in.
@@ -47,6 +55,7 @@ function Consent() {
   }
   return <Intro>
     <p className="m-0 text-[15px] leading-snug">{t('Il coach legge i tuoi allenamenti, il peso, la dieta e i documenti che carichi, e li manda a Claude (Anthropic) per risponderti.')}</p>
+    <p className="m-0 text-[15px] leading-snug">{t('Quando glielo chiedi usa l’app al posto tuo: schede, storico, peso, impostazioni. Ogni modifica si annulla con un tocco.')}</p>
     <Button className="rounded-full" onClick={on}>{t('Attiva il coach')}</Button>
   </Intro>
 }
@@ -89,10 +98,14 @@ export default function Coach() {
     setText('')
     try {
       const r = await askCoach(q, sid)
-      if (r.changes?.length) {   // the coach edited his routines: applied now, one tap to undo
-        const { routines, customEx } = structuredClone(useStore.getState().S)
+      if (r.changes?.length) {   // the coach did something in the app: applied now, one tap to undo
+        const before = structuredClone(useStore.getState().S)
         update(s => applyCoachChanges(s, r.changes))
-        useUI.getState().toast(t('Schede aggiornate'), { label: t('Annulla'), run: () => update(s => { s.routines = routines; s.customEx = customEx }) })
+        const go = r.changes.find(c => c.op === 'start')
+        const routine = go && useStore.getState().S.routines.find(x => x.id === go.id)
+        if (routine && !useStore.getState().S.active) { update(s => { s.active = startSession(s, routine) }); nav('/allenamento') }
+        // undo puts back everything but a workout started meanwhile
+        useUI.getState().toast(t('Fatto dal coach'), { label: t('Annulla'), run: () => update(s => { const { active } = s; Object.assign(s, before); s.active = go ? null : active }) })
       }
       await load()
     }
@@ -171,16 +184,19 @@ export default function Coach() {
         </div>)}</section>}
       </div> : <div className="flex flex-col gap-2">
         {!msgs.length && tab !== 'chat' && <div className="py-12 text-center text-[15px] text-muted-foreground">{t('Ancora niente qui.')}</div>}
-        {!msgs.length && tab === 'chat' && <Intro><p className="m-0 text-[15px] leading-snug">{t('Conosco i tuoi allenamenti, il peso, la dieta e le analisi. Chiedimi quello che vuoi.')}</p></Intro>}
+        {!msgs.length && tab === 'chat' && <Intro><p className="m-0 text-[15px] leading-snug">{t('Conosco i tuoi allenamenti, il peso, la dieta e le analisi. Chiedimi quello che vuoi.')}</p>
+          <p className="m-0 text-[15px] leading-snug">{t('E posso fare le cose al posto tuo: creare e cambiare schede, aggiungere o togliere allenamenti dallo storico, segnare il peso, cambiare le impostazioni, far partire un allenamento. Dimmelo e lo faccio, e se non ti piace lo annulli con un tocco.')}</p></Intro>}
         {msgs.map((m, i) => m.role === 'user'
           ? <div key={i} className={bubble + ' self-end rounded-br-md bg-primary text-primary-foreground'}>{rich(m.text)}</div>
           : <div key={i} className="flex flex-col items-start gap-1">
             <span className="px-1 text-[12px] text-muted-foreground">{t(LABEL[m.kind] || 'Coach')} · {day(m.at)}</span>
             <div className={bubble + ' rounded-bl-md bg-card'}>{rich(m.text)}</div>
-            {m.changes?.map((c, j) => { const live = c.op !== 'delete' && S.routines.some(r => r.id === c.id)
-              return <button key={j} disabled={!live} className="flex max-w-[82%] items-center gap-2 rounded-xl bg-card px-3 py-2 text-left text-[14px] active:bg-raised disabled:opacity-60" onClick={() => nav('/progressi/scheda/' + c.id)}>
-                <Icon name={c.op === 'delete' ? 'trash' : c.op === 'create' ? 'plus' : 'pencil'} size={16} className="shrink-0 text-tinta" />
-                <span className="truncate">{t({ create: 'Creata «{0}»', edit: 'Modificata «{0}»', delete: 'Eliminata «{0}»' }[c.op], c.name)}</span>
+            {m.changes?.map((c, j) => { const [icon, label, to] = CHIP[c.op] || CHIP.edit
+              const live = to && (c.op.startsWith('workout') ? S.workouts.some(w => w.id === c.id) : ['create', 'edit'].includes(c.op) ? S.routines.some(r => r.id === c.id) : true)
+              const what = c.op.startsWith('workout') ? `${c.name} ${ddmm(c.d)}` : c.op.startsWith('weight') ? (c.name ? `${c.name} kg ` : '') + ddmm(c.d) : c.name
+              return <button key={j} disabled={!live} className="flex max-w-[82%] items-center gap-2 rounded-xl bg-card px-3 py-2 text-left text-[14px] active:bg-raised disabled:opacity-60" onClick={() => nav(to(c))}>
+                <Icon name={icon} size={16} className="shrink-0 text-tinta" />
+                <span className="truncate">{t(label, what)}</span>
                 {live && <Icon name="chevronRight" size={16} className="shrink-0 text-muted-foreground/60" />}
               </button> })}
           </div>)}

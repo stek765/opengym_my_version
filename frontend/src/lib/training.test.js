@@ -177,3 +177,20 @@ describe('applyCoachChanges', () => {
     expect(s.customEx.filter(e => e.id === 'c_x').length).toBe(1)
   })
 })
+
+describe('applyCoachChanges on the rest of the app', () => {
+  it('adds a past workout in date order, fixes and deletes one, logs weight, changes settings and names', () => {
+    const s = S()
+    const [a, b] = s.workouts
+    applyCoachChanges(s, [
+      { op: 'workout-add', id: 'wX', d: a.d, name: 'Fatto', start: a.start + 1, end: a.start + 2, entries: [{ id: 'c_y', sets: [set(10, 5)] }], newEx: [{ id: 'c_y', n: 'Y' }] },
+      { op: 'workout-edit', id: b.id, name: 'Rinominato' }, { op: 'workout-delete', id: s.workouts.at(-1).id },
+      { op: 'weight', d: '2026-11-02', w: 79 }, { op: 'settings', set: { restSec: 120 } }, { op: 'rename', id: '0025', name: 'Panca' }
+    ])
+    expect(s.workouts.findIndex(w => w.id === 'wX')).toBe(1)   // same day as the first, later start
+    expect(s.workouts.find(w => w.id === b.id).name).toBe('Rinominato')
+    expect(s.customEx.some(e => e.id === 'c_y')).toBe(true)
+    expect(s.bodyweight.at(-1)).toMatchObject({ d: '2026-11-02', w: 79 })
+    expect(s.restSec).toBe(120); expect(s.exNames['0025']).toBe('Panca')
+  })
+})

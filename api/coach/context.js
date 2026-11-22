@@ -49,10 +49,14 @@ export function buildContext(S, today) {
     // ids too: the coach edits a routine by its id and keeps an exercise by its id
     schede: (S.routines || []).map(r => ({ id: r.id, nome: r.name, tipo: r.cat || (r.rec ? 'mob' : 'forza'), esercizi: (r.ex || []).map(e => ({ id: e.id, nome: nameOf(S, e.id), serie: e.sets, rip: e.reps })) })),
     esercizi,
+    // ids so the coach can fix or delete one; the older ones only as a line each
     ultimiAllenamenti: (S.workouts || []).slice(-10).map(w => ({
-      data: w.d, scheda: w.name, minuti: w.end && w.start ? Math.round((w.end - w.start) / 60000) : null,
+      id: w.id, data: w.d, scheda: w.name, minuti: w.end && w.start ? Math.round((w.end - w.start) / 60000) : null,
       esercizi: (w.entries || []).map(e => ('check' in e ? nameOf(S, e.id) + ' ✓' : `${nameOf(S, e.id)}: ${fmtSets(done(e.sets))}`))
     })),
+    allenamentiPrecedenti: (S.workouts || []).slice(0, -10).map(w => `${w.id} · ${w.d} · ${w.name}`),
+    impostazioni: { recuperoSec: S.restSec ?? 90, sogliaRip: S.threshold ?? 10, lingua: S.lang || 'it' },
+    allenamentoInCorso: S.active ? S.active.name : null,
     pesoCorporeo: (S.bodyweight || []).slice(-20).map(b => `${b.d}: ${b.w}`),
     seriePerMuscolo30g: Object.entries(perM).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${muscoloIt(m)}: ${n}`)
   };

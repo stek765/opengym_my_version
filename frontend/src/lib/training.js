@@ -152,6 +152,7 @@ export const setCat = (r, c) => { r.cat = c; if (c === 'forza') delete r.rec; el
 export function applyCoachChanges(s, changes) {
   for (const c of changes || []) {
     for (const e of c.newEx || []) if (!(s.customEx || []).some(x => x.id === e.id)) s.customEx = [...(s.customEx || []), e]
+    if (applyAppChange(s, c)) continue
     const r = s.routines.find(x => x.id === c.id)
     if (c.op === 'delete') { s.routines = s.routines.filter(x => x.id !== c.id); continue }
     if (c.op === 'create' && !r) {
@@ -164,6 +165,25 @@ export function applyCoachChanges(s, changes) {
     if (c.ex) r.ex = c.ex
     if (c.cat) setCat(r, c.cat)
   }
+}
+// The rest of the app the coach can touch: history, body weight, settings, exercise names.
+// History stays in date order: "last time" and the deltas read it by position.
+const byDay = (a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : (a.start || 0) - (b.start || 0))
+function applyAppChange(s, c) {
+  const ws = s.workouts || (s.workouts = [])
+  switch (c.op) {
+    case 'workout-add': ws.push({ id: c.id, d: c.d, routineId: c.routineId || null, name: c.name, start: c.start ?? null, end: c.end ?? null, entries: c.entries }); break
+    case 'workout-edit': { const w = ws.find(x => x.id === c.id); if (w) for (const k of ['d', 'name', 'routineId', 'start', 'end', 'entries']) if (c[k] !== undefined) w[k] = c[k]; break }
+    case 'workout-delete': s.workouts = ws.filter(x => x.id !== c.id); return true
+    case 'weight': s.bodyweight = withWeight(s.bodyweight, c.w, c.d); return true
+    case 'weight-delete': s.bodyweight = (s.bodyweight || []).filter(b => b.d !== c.d); return true
+    case 'settings': Object.assign(s, c.set); return true
+    case 'rename': s.exNames = { ...(s.exNames || {}), [c.id]: c.name }; return true
+    case 'start': return true   // the view starts it: it needs the session code and a page change
+    default: return false
+  }
+  ws.sort(byDay)
+  return true
 }
 export const isRec = (S, w) => !!(S.routines || []).find(r => r.id === w.routineId)?.rec
 // The workout that represents a day: the last gym one, else the last of any kind.

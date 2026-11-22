@@ -152,7 +152,7 @@ async function context(uid, S) {
 }
 
 const SHAPE = 'Rispondi con un solo oggetto JSON: {"answer": "<testo>", "remember": ["<fatto nuovo>", ...]}.';
-const CHAT_SHAPE = 'Rispondi con un solo oggetto JSON: {"answer": "<testo>", "remember": ["<fatto nuovo>", ...], "schede": [<modifiche alle schede, solo se le fai: vedi sotto>]}.';
+const CHAT_SHAPE = 'Rispondi con un solo oggetto JSON: {"answer": "<testo>", "remember": ["<fatto nuovo>", ...], "schede": [<modifiche alle schede, solo se le fai>], "azioni": [<altre cose che fai nell\'app, solo se le fai>]}. Vedi sotto.';
 
 
 /** One model call with one repair retry. `check(value)` says whether the JSON has the right shape. */
@@ -197,10 +197,10 @@ const common = S => fs.readFileSync(path.join(PROMPTS, 'common.md'), 'utf8') +
 export async function ask(uid, text, sid = 'old') {
   const S = ready(uid);
   const past = readChat(uid).filter(m => (m.kind || 'chat') === 'chat' && sidOf(m) === sid).slice(-CHAT_IN_PROMPT).map(m => `${m.role === 'user' ? 'Lui' : 'Tu'}: ${m.text}`).join('\n');
-  const v = await call([common(S), CHAT_SHAPE, fs.readFileSync(path.join(PROMPTS, 'schede.md'), 'utf8'), await context(uid, S), '## Conversazione recente', past, '## Nuovo messaggio', text].join('\n\n'), isAnswer);
-  const changes = resolveChanges(S, v.schede);
+  const v = await call([common(S), CHAT_SHAPE, fs.readFileSync(path.join(PROMPTS, 'app.md'), 'utf8'), await context(uid, S), '## Conversazione recente', past, '## Nuovo messaggio', text].join('\n\n'), isAnswer);
+  const changes = [...resolveChanges(S, v.schede), ...resolveActions(S, v.azioni)];
   const at = Date.now();
-  appendChat(uid, { role: 'user', kind: 'chat', sid, text, at }, { role: 'coach', kind: 'chat', sid, text: v.answer, at, ...(changes.length ? { changes: changes.map(c => ({ op: c.op, id: c.id, name: c.name })) } : {}) });
+  appendChat(uid, { role: 'user', kind: 'chat', sid, text, at }, { role: 'coach', kind: 'chat', sid, text: v.answer, at, ...(changes.length ? { changes: changes.map(c => ({ op: c.op, id: c.id, name: c.name, d: c.d })) } : {}) });
   remember(uid, v.remember);
   return { answer: v.answer, changes };
 }
@@ -252,6 +252,66 @@ export function resolveChanges(S, list) {
       ...(CAT.has(c.tipo) ? { cat: c.tipo } : op === 'create' ? { cat: 'forza' } : {}),
       ...(ex ? { ex } : {}), ...(fresh.length ? { newEx: fresh } : {})
     });
+  }
+  return out;
+}
+
+/* ---------- the coach acting on the rest of the app ----------
+ * Same deal as the routines: checked and resolved here, applied by the app. Ops the app knows:
+ * workout-add / workout-edit / workout-delete, weight / weight-delete, settings, rename, start. */
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const day = d => (ISO.test(d) && d <= todayISO() ? d : null);   // no future dates
+const num = (x, lo, hi) => { const n = Math.round(+x * 10) / 10; return n >= lo && n <= hi ? n : null; };
+
+function entriesFor(S, list, fresh) {
+  return (Array.isArray(list) ? list.slice(0, 30) : []).map(e => {
+    const id = exerciseFor(S, e || {}, fresh);
+    const sets = (Array.isArray(e?.serie) ? e.serie.slice(0, 20) : []).map(x => ({ w: num(x?.kg, 0.1, 1000), r: int(x?.rip, 1, 600, null), done: true })).filter(x => x.r);
+    return id && sets.length && { id, sets };
+  }).filter(Boolean);
+}
+
+export function resolveActions(S, list) {
+  const out = [], ws = S.workouts || [];
+  for (const a of Array.isArray(list) ? list.slice(0, 10) : []) {
+    const w = ws.find(x => x.id === a?.id);
+    switch (a?.azione) {
+      case 'aggiungi_allenamento': case 'modifica_allenamento': {
+        const edit = a.azione === 'modifica_allenamento';
+        if (edit && !w) break;
+        const fresh = [], d = a.data === undefined && edit ? w.d : day(a.data);
+        const entries = a.esercizi === undefined && edit ? null : entriesFor(S, a.esercizi, fresh);
+        const r = (S.routines || []).find(x => x.id === a.scheda);
+        const name = String(a.nome || r?.name || w?.name || '').trim().slice(0, 60);
+        if (!d || !name || (entries && !entries.length)) break;
+        // the minutes are shown from start/end; a missing time of day is early evening
+        const min = int(a.minuti, 1, 600, null), start = min ? new Date(d + 'T18:00:00').getTime() : null;
+        out.push({
+          op: edit ? 'workout-edit' : 'workout-add', id: w?.id || 'w' + Date.now().toString(36) + out.length, d, name,
+          ...(r ? { routineId: r.id } : {}), ...(start ? { start, end: start + min * 60000 } : {}),
+          ...(entries ? { entries } : {}), ...(fresh.length ? { newEx: fresh } : {})
+        });
+        break;
+      }
+      case 'elimina_allenamento': if (w) out.push({ op: 'workout-delete', id: w.id, d: w.d, name: w.name }); break;
+      case 'peso': { const d = day(a.data), kg = num(a.kg, 20, 400); if (d && kg) out.push({ op: 'weight', id: d, d, w: kg, name: String(kg) }); break; }
+      case 'elimina_peso': if ((S.bodyweight || []).some(b => b.d === a.data)) out.push({ op: 'weight-delete', id: a.data, d: a.data, name: '' }); break;
+      case 'impostazioni': {
+        const set = {
+          ...(int(a.recuperoSec, 10, 600, null) ? { restSec: int(a.recuperoSec, 10, 600) } : {}),
+          ...(int(a.sogliaRip, 1, 50, null) ? { threshold: int(a.sogliaRip, 1, 50) } : {}),
+          ...(['it', 'en'].includes(a.lingua) ? { lang: a.lingua } : {})
+        };
+        if (Object.keys(set).length) out.push({ op: 'settings', id: 'settings', name: '', set });
+        break;
+      }
+      case 'rinomina_esercizio': {
+        const name = String(a.nome || '').trim().slice(0, 80), id = exerciseFor(S, { id: a.id }, []);
+        if (id === a.id && name) out.push({ op: 'rename', id, name });
+        break;
+      }
+      case 'inizia': { const r = (S.routines || []).find(x => x.id === a.scheda); if (r && !S.active) out.push({ op: 'start', id: r.id, name: r.name }); break; }
+    }
   }
   return out;
 }

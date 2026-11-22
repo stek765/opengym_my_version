@@ -169,6 +169,27 @@ test('routine changes: known ids kept, library names resolved, unknown names bec
   assert.equal(out[1].op, 'create'); assert.equal(out[1].cat, 'stretch'); assert.equal(out[1].ex[0].reps, 40);
 });
 
+test('app actions: workouts, weight, settings, rename, start resolved; future dates, unknown ids and bad values dropped', () => {
+  const S = { routines: [{ id: 'r1', name: 'Push', ex: [] }], exNames: {}, customEx: [], bodyweight: [{ d: '2026-11-01', w: 80 }],
+    workouts: [{ id: 'w1', d: '2026-11-01', name: 'Push', entries: [{ id: '0025', sets: [{ w: 60, r: 8, done: true }] }] }] };
+  const out = jobs.resolveActions(S, [
+    { azione: 'aggiungi_allenamento', data: '2026-11-02', scheda: 'r1', minuti: 50, esercizi: [{ id: '0025', serie: [{ kg: 62.5, rip: 8 }, { rip: 0 }] }, { nome: 'Ponte di Zanolli', serie: [{ rip: 12 }] }] },
+    { azione: 'aggiungi_allenamento', data: '2999-01-01', nome: 'futuro', esercizi: [{ id: '0025', serie: [{ kg: 1, rip: 1 }] }] },
+    { azione: 'modifica_allenamento', id: 'w1', data: '2026-10-31' }, { azione: 'elimina_allenamento', id: 'nessuno' },
+    { azione: 'peso', data: '2026-11-02', kg: 79.46 }, { azione: 'peso', data: '2026-11-02', kg: 5 }, { azione: 'elimina_peso', data: '2026-11-01' },
+    { azione: 'impostazioni', recuperoSec: 120, sogliaRip: 999, lingua: 'fr' }, { azione: 'rinomina_esercizio', id: '0025', nome: 'Panca' },
+    { azione: 'inizia', scheda: 'r1' }, { azione: 'boh' }
+  ]);
+  assert.deepEqual(out.map(c => c.op), ['workout-add', 'workout-edit', 'weight', 'weight-delete', 'settings', 'rename', 'start']);
+  const add = out[0];
+  assert.equal(add.name, 'Push'); assert.equal(add.routineId, 'r1'); assert.equal(add.end - add.start, 50 * 60000);
+  assert.deepEqual(add.entries[0].sets, [{ w: 62.5, r: 8, done: true }]);
+  assert.deepEqual(add.entries[1].sets, [{ w: null, r: 12, done: true }]); assert.equal(add.newEx[0].n, 'Ponte di Zanolli');
+  assert.equal(out[1].d, '2026-10-31'); assert.equal(out[1].entries, undefined);
+  assert.equal(out[2].w, 79.5); assert.deepEqual(out[4].set, { restSec: 120 });
+  assert.equal(jobs.resolveActions({ ...S, active: { name: 'x' } }, [{ azione: 'inizia', scheda: 'r1' }]).length, 0);
+});
+
 test('ask returns the changes and the chat message remembers what changed', async () => {
   reset();
   const rid = (jobs.readState(UID).routines || [])[0]?.id;
