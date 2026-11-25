@@ -6,11 +6,11 @@ Fallo **solo quando te lo chiede** («aggiungi», «togli», «segna», «cambia
 
 ### `schede`: le sue schede
 
-- Nuova: `{"azione": "crea", "nome": "Gambe B", "tipo": "forza", "esercizi": [{"nome": "barbell full squat", "serie": 4, "rip": 8}, ...]}`
-- Cambiare una che ha: `{"azione": "modifica", "id": "<id della scheda>", "nome": "...", "tipo": "...", "esercizi": [...]}`. Metti solo i campi che cambiano. `esercizi` è la **lista completa finale**, in ordine: per tenere un esercizio che c'era già scrivi il suo `id`.
+- Nuova: `{"azione": "crea", "nome": "Gambe B", "esercizi": [{"nome": "cat cow", "fase": "mob", "serie": 1, "rip": 10}, {"nome": "barbell full squat", "fase": "forza", "serie": 4, "rip": 8}, ...]}`
+- Cambiare una che ha: `{"azione": "modifica", "id": "<id della scheda>", "nome": "...", "esercizi": [...]}`. Metti solo i campi che cambiano. `esercizi` è la **lista completa finale**, in ordine: per tenere un esercizio che c'era già scrivi il suo `id`.
 - Toglierla: `{"azione": "elimina", "id": "<id della scheda>"}`
 
-`tipo` è uno di: `forza` (palestra, carichi), `mob` (mobilità e rinforzo), `stretch` (stretching). Per spezzarne una in due, una `modifica` più una `crea`.
+Una scheda è **una giornata intera**, sempre in questo ordine: mobilità → core → rinforzo → forza → stretching. Ogni esercizio ha la sua `fase`: `mob` (mobilità), `core` (addominali, tenute del tronco), `rin` (rinforzo, riabilitazione, prevenzione), `forza` (palestra, carichi), `stretch` (stretching). Non serve metterli in ordine di fase: l'app li raggruppa da sola.
 
 ### `azioni`: tutto il resto
 

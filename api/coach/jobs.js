@@ -208,7 +208,7 @@ export async function ask(uid, text, sid = 'old') {
 /* ---------- the coach editing routines ----------
  * The routines live in the synced state, which only the app writes (see the top of this file).
  * So the server only checks and resolves what the model asked for; the app applies it. */
-const CAT = new Set(['forza', 'mob', 'stretch']);
+const PHASES = new Set(['mob', 'core', 'rin', 'forza', 'stretch']);
 const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const int = (x, lo, hi, d) => { const n = Math.round(+x); return n >= lo && n <= hi ? n : d; };
 
@@ -241,15 +241,15 @@ export function resolveChanges(S, list) {
     const fresh = [];
     const ex = Array.isArray(c.esercizi) ? c.esercizi.slice(0, 30).map(e => {
       const id = exerciseFor(S, e || {}, fresh), prev = old?.ex?.find(x => x.id === id);
-      return id && { id, sets: int(e.serie, 1, 10, prev?.sets || 3), reps: int(e.rip, 1, 600, prev?.reps || 10), weight: prev?.weight ?? null };
+      const ph = PHASES.has(e.fase) ? e.fase : prev?.ph || 'forza';
+      // a stretch is held, so a new exercise in that phase counts seconds (the app reads kind 'time')
+      if (ph === 'stretch') { const f = fresh.find(x => x.id === id); if (f) f.kind = 'time'; }
+      return id && { id, ph, sets: int(e.serie, 1, 10, prev?.sets || 3), reps: int(e.rip, 1, 600, prev?.reps || 10), weight: prev?.weight ?? null };
     }).filter((e, i, a) => e && a.findIndex(x => x?.id === e.id) === i) : null;
     const name = String(c.nome || old?.name || '').trim().slice(0, 60);
-    // a stretch is held, so its own new exercises count seconds (the app reads kind 'time')
-    if ((CAT.has(c.tipo) ? c.tipo : old?.cat) === 'stretch') fresh.forEach(f => { f.kind = 'time'; });
     if (op === 'create' && (!name || !ex?.length)) continue;
     out.push({
       op, id: old?.id || 'r' + Date.now().toString(36) + out.length, name,
-      ...(CAT.has(c.tipo) ? { cat: c.tipo } : op === 'create' ? { cat: 'forza' } : {}),
       ...(ex ? { ex } : {}), ...(fresh.length ? { newEx: fresh } : {})
     });
   }

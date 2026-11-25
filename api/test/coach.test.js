@@ -158,15 +158,17 @@ test('clearChat empties one section and keeps the others and the memory', () => 
 test('routine changes: known ids kept, library names resolved, unknown names become his own, bad ops dropped', async () => {
   const S = { routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025', sets: 4, reps: 8, weight: 60 }] }], exNames: {}, customEx: [], workouts: [] };
   const out = jobs.resolveChanges(S, [
-    { azione: 'modifica', id: 'r1', tipo: 'forza', esercizi: [{ id: '0025' }, { nome: '3/4 sit-up', serie: 3, rip: 15 }, { nome: 'Ponte di Zanolli' }] },
-    { azione: 'crea', nome: 'Stretch serale', tipo: 'stretch', esercizi: [{ nome: '3/4 sit-up', rip: 40 }] },
+    { azione: 'modifica', id: 'r1', esercizi: [{ id: '0025' }, { nome: '3/4 sit-up', fase: 'core', serie: 3, rip: 15 }, { nome: 'Ponte di Zanolli' }] },
+    { azione: 'crea', nome: 'Stretch serale', esercizi: [{ nome: '3/4 sit-up', fase: 'stretch', rip: 40 }, { nome: 'Allungo strano', fase: 'stretch' }] },
     { azione: 'modifica', id: 'nessuna' }, { azione: 'boh' }, { azione: 'crea', nome: 'vuota', esercizi: [] }
   ]);
   assert.equal(out.length, 2);
   assert.deepEqual(out[0].ex.map(e => [e.id, e.sets, e.reps]), [['0025', 4, 8], ['0001', 3, 15], ['c_ponte_di_zanolli', 3, 10]]);
   assert.equal(out[0].ex[0].weight, 60);
   assert.deepEqual(out[0].newEx, [{ id: 'c_ponte_di_zanolli', n: 'Ponte di Zanolli' }]);
-  assert.equal(out[1].op, 'create'); assert.equal(out[1].cat, 'stretch'); assert.equal(out[1].ex[0].reps, 40);
+  assert.deepEqual(out[0].ex.map(e => e.ph), ['forza', 'core', 'forza']);
+  assert.equal(out[1].op, 'create'); assert.equal(out[1].ex[0].ph, 'stretch'); assert.equal(out[1].ex[0].reps, 40);
+  assert.equal(out[1].newEx[0].kind, 'time');   // a new exercise in the stretch phase is held
 });
 
 test('app actions: workouts, weight, settings, rename, start resolved; future dates, unknown ids and bad values dropped', () => {

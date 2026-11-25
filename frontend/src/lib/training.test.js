@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import real from './fixture-state.json'
 import { applyCoachChanges,
   displayName, lastSession, measureOf, startSets, increaseOffer, applyIncrease, topOf,
-  finishSession, exerciseRows, exerciseHistory, workoutDelta, monthSummary, setsPerMuscle, suggestedRoutine, routineColor, withWeight, isRec, mainOf, catOf, setCat
+  finishSession, exerciseRows, exerciseHistory, workoutDelta, monthSummary, setsPerMuscle, suggestedRoutine, routineColor, withWeight, isRec, mainOf, phaseOf, byPhase
 } from './training.js'
 
 const S = (extra = {}) => ({ exNames: {}, incr: {}, threshold: 10, muscles: {}, customEx: [], ...JSON.parse(JSON.stringify(real)), ...extra })
@@ -154,26 +154,43 @@ describe('recovery routines', () => {
   })
 })
 
-it('routine category: old data maps from rec, and setting one keeps rec in step', () => {
-  expect(catOf({})).toBe('forza'); expect(catOf({ rec: true })).toBe('mob')
-  const r = {}; setCat(r, 'stretch'); expect(r.rec).toBe(true); expect(catOf(r)).toBe('stretch')
-  setCat(r, 'forza'); expect(r.rec).toBeUndefined()
+it('a recovery workout stays recovery once its routine is gone', () => {
+  expect(isRec({ routines: [] }, { routineId: 'gone', rec: true })).toBe(true)
+  expect(isRec({ routines: [] }, { routineId: 'gone' })).toBe(false)
+})
+
+describe('phases of a day', () => {
+  const S0 = { customEx: [] }
+  it('an exercise keeps the phase it was given', () => { expect(phaseOf(S0, { id: '0314', ph: 'core' })).toBe('core') })
+  it('one without guesses from its type, the old routine kind as a hint', () => {
+    expect(phaseOf(S0, { id: '0314' })).toBe('forza')            // dumbbell incline bench press
+    expect(phaseOf(S0, { id: 'rh-20' })).toBe('mob')             // shoulder cars
+    expect(phaseOf(S0, { id: 'rh-11' })).toBe('core')            // bird dog, waist
+    expect(phaseOf(S0, { id: 'rh-13' })).toBe('rin')             // wall slide
+    expect(phaseOf(S0, { id: 'rh-40' })).toBe('stretch')
+    expect(phaseOf(S0, { id: '0688' }, { cat: 'stretch' })).toBe('stretch')
+    expect(phaseOf(S0, { id: '3145' }, { rec: true })).toBe('rin')
+  })
+  it('byPhase lists the five in day order, keeping the order inside each', () => {
+    const r = { ex: [{ id: 'a', ph: 'forza' }, { id: 'b', ph: 'mob' }, { id: 'c', ph: 'forza' }, { id: 'd', ph: 'stretch' }] }
+    expect(byPhase(S0, r).map(([p, xs]) => [p, xs.map(x => x.id).join('')])).toEqual([['mob', 'b'], ['core', ''], ['rin', ''], ['forza', 'ac'], ['stretch', 'd']])
+  })
 })
 
 describe('applyCoachChanges', () => {
-  it('creates with a category and a free colour, edits only what it names, deletes, adds new exercises once', () => {
+  it('creates with a free colour, edits only what it names, deletes, adds new exercises once', () => {
     const s = S()
     const first = s.routines[0], n = s.routines.length
     applyCoachChanges(s, [
-      { op: 'create', id: 'rX', name: 'Stretch', cat: 'stretch', ex: [{ id: 'c_x', sets: 1, reps: 30, weight: null }], newEx: [{ id: 'c_x', n: 'X' }] },
-      { op: 'edit', id: first.id, cat: 'mob' },
+      { op: 'create', id: 'rX', name: 'Stretch', ex: [{ id: 'c_x', ph: 'stretch', sets: 1, reps: 30, weight: null }], newEx: [{ id: 'c_x', n: 'X' }] },
+      { op: 'edit', id: first.id, name: 'Nuovo' },
       { op: 'edit', id: s.routines[1].id, ex: [], newEx: [{ id: 'c_x', n: 'X' }] },
       { op: 'delete', id: s.routines[2].id }
     ])
     expect(s.routines.length).toBe(n)
     const x = s.routines.find(r => r.id === 'rX')
-    expect(catOf(x)).toBe('stretch'); expect(x.color).toBeTruthy()
-    expect(first.name).toBeTruthy(); expect(first.ex.length).toBeGreaterThan(0); expect(catOf(first)).toBe('mob')
+    expect(x.ex[0].ph).toBe('stretch'); expect(x.color).toBeTruthy(); expect(x.rec).toBeUndefined()
+    expect(first.name).toBe('Nuovo'); expect(first.ex.length).toBeGreaterThan(0)
     expect(s.customEx.filter(e => e.id === 'c_x').length).toBe(1)
   })
 })

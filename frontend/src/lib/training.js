@@ -141,12 +141,20 @@ export function setsPerMuscle(S, today, days = 30) {
   return Object.entries(c).map(([muscle, sets]) => ({ muscle, sets })).sort((a, b) => b.sets - a.sets)
 }
 
-// Recovery routines (mobility, rehab, stretching) are done on rest days too: they never stand
-// in for a gym day — not suggested, not counted, and a gym session wins the day's colour.
-// What a routine is for, as he groups them: strength is the gym, the other two are recovery (rec).
-export const CATS = [['forza', 'Forza'], ['mob', 'Mobilità e rinforzo'], ['stretch', 'Stretching']]
-export const catOf = r => r.cat || (r.rec ? 'mob' : 'forza')
-export const setCat = (r, c) => { r.cat = c; if (c === 'forza') delete r.rec; else r.rec = true }
+// A routine is a whole gym day, always in this order. Each exercise of r.ex carries its phase (ph).
+export const PHASES = [['mob', 'Mobilità'], ['core', 'Core'], ['rin', 'Rinforzo'], ['forza', 'Forza'], ['stretch', 'Stretching']]
+const PH = PHASES.map(p => p[0])
+// An exercise nobody placed yet (old routines, the coach, other users): from its type, with the
+// old routine kind (cat/rec, from before the phases) as a hint.
+export function phaseOf(S, x, r) {
+  if (PH.includes(x.ph)) return x.ph
+  const e = exOf(S, x.id)
+  if (e.ty === 'stretch' || r?.cat === 'stretch') return 'stretch'
+  if (e.ty === 'mob') return 'mob'
+  if (e.bp === 'waist') return 'core'
+  return e.ty === 'rin' || r?.rec ? 'rin' : 'forza'
+}
+export const byPhase = (S, r) => PHASES.map(([p]) => [p, (r?.ex || []).filter(x => phaseOf(S, x, r) === p)])
 // What the coach changed in his routines (already checked by the server), applied to the state.
 // A new routine takes the first colour nobody uses, as one he makes himself.
 export function applyCoachChanges(s, changes) {
@@ -157,13 +165,11 @@ export function applyCoachChanges(s, changes) {
     if (c.op === 'delete') { s.routines = s.routines.filter(x => x.id !== c.id); continue }
     if (c.op === 'create' && !r) {
       const used = new Set(s.routines.map(x => routineColor(s, x.id)))
-      const n = { id: c.id, name: c.name, ex: c.ex, color: PALETTE.find(x => !used.has(x)) || PALETTE[0] }
-      setCat(n, c.cat || 'forza'); s.routines.push(n); continue
+      s.routines.push({ id: c.id, name: c.name, ex: c.ex, color: PALETTE.find(x => !used.has(x)) || PALETTE[0] }); continue
     }
     if (!r) continue
     if (c.name) r.name = c.name
     if (c.ex) r.ex = c.ex
-    if (c.cat) setCat(r, c.cat)
   }
 }
 // The rest of the app the coach can touch: history, body weight, settings, exercise names.
@@ -185,7 +191,9 @@ function applyAppChange(s, c) {
   ws.sort(byDay)
   return true
 }
-export const isRec = (S, w) => !!(S.routines || []).find(r => r.id === w.routineId)?.rec
+// Recovery-only workouts (from before the phases, when mobility was a routine of its own) never
+// stand in for a gym day. w.rec keeps that once their routine is gone.
+export const isRec = (S, w) => !!(w.rec || (S.routines || []).find(r => r.id === w.routineId)?.rec)
 // The workout that represents a day: the last gym one, else the last of any kind.
 export const mainOf = (S, list) => list && ([...list].reverse().find(w => !isRec(S, w)) || list[list.length - 1])
 

@@ -25,3 +25,4 @@ services:
       - "${WEB_PORT:-8080}:80"
     volumes:
       - ./media/img:/usr/share/nginx/html/img:ro   # exercise pictures
+      - ./media/gif:/usr/share/nginx/html/gif:ro   # exercise animations

@@ -1,6 +1,6 @@
 // The workout in progress (S.active). Pure: each function returns a new active session.
 import { exOr } from './exercises.js'
-import { startSets, applyIncrease } from './training.js'
+import { startSets, applyIncrease, byPhase } from './training.js'
 
 const kindOf = (S, id) => ((S.customEx || []).find(e => e.id === id) || exOr(id)).kind
 const clone = a => JSON.parse(JSON.stringify(a))
@@ -10,9 +10,9 @@ const withEntry = (a, id, fn) => {
   if (e) fn(e)
   return out
 }
-const entryFor = (S, ex) => kindOf(S, ex.id) === 'check'
-  ? { id: ex.id, check: false, sets: [] }
-  : { id: ex.id, sets: startSets(S, ex.id, ex) }
+const entryFor = (S, ex, ph = 'forza') => kindOf(S, ex.id) === 'check'
+  ? { id: ex.id, ph, check: false, sets: [] }
+  : { id: ex.id, ph, sets: startSets(S, ex.id, ex) }
 
 // The workout starts from the warm-up: an unticked check entry counts as "to do".
 const pending = e => !e.skipped && ('check' in e ? !e.check : e.sets.some(s => !s.done))
@@ -38,7 +38,7 @@ export function removeEntry(a, id) {
 }
 
 export function startSession(S, routine, now = Date.now()) {
-  const a = { routineId: routine?.id || null, name: routine?.name || 'Allenamento libero', start: now, entries: (routine?.ex || []).map(ex => entryFor(S, ex)), openId: null }
+  const a = { routineId: routine?.id || null, name: routine?.name || 'Allenamento libero', start: now, entries: byPhase(S, routine).flatMap(([ph, xs]) => xs.map(ex => entryFor(S, ex, ph))), openId: null }
   a.openId = nextOpen(a)
   return a
 }
@@ -75,10 +75,12 @@ export const answerOffer = (a, id, inc) => withEntry(a, id, e => {
   e.offer = inc
 })
 
-export function addEntry(S, a, id) {
+// ph: the phase on screen. It goes after that phase's last exercise, so the day keeps its order.
+export function addEntry(S, a, id, ph = 'forza') {
   if (a.entries.some(e => e.id === id)) return a
   const out = clone(a)
-  out.entries.push(entryFor(S, { id, sets: 3, reps: 10 }))
+  const i = out.entries.findLastIndex(e => e.ph === ph)
+  out.entries.splice(i < 0 ? out.entries.length : i + 1, 0, entryFor(S, { id, sets: 3, reps: 10 }, ph))
   out.openId = id
   return out
 }
@@ -92,7 +94,7 @@ export function replaceEntry(S, a, from, to) {
   if (i < 0) return a
   const old = out.entries[i]
   const kept = old.sets?.some(s => s.done) ? [{ ...old, sets: old.sets.filter(s => s.done) }] : []
-  out.entries.splice(i, 1, ...kept, entryFor(S, { id: to, sets: 3, reps: 10 }))
+  out.entries.splice(i, 1, ...kept, entryFor(S, { id: to, sets: 3, reps: 10 }, old.ph))
   if (out.prevId === from && !kept.length) out.prevId = null
   out.openId = to
   return out

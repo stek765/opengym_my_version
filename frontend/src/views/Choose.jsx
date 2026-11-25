@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { suggestedRoutine, CATS, catOf } from '../lib/training.js'
+import { suggestedRoutine } from '../lib/training.js'
 import { startSession } from '../lib/session.js'
 import Bar from '../components/Bar.jsx'
 import Icon from '../components/Icon.jsx'
@@ -34,24 +34,17 @@ export default function Choose() {
       </button>
     </>}
 
-    {/* the others, folded by what they are for (strength open), each with its pictures small */}
-    {CATS.map(([c, label]) => {
-      const rs = S.routines.filter(r => r !== sug && catOf(r) === c)
-      return rs.length > 0 && <details key={c} open={c === 'forza'} className="group mt-3 overflow-hidden rounded-2xl bg-card">
-        <summary className="flex min-h-13 cursor-pointer list-none items-center gap-2 px-4 py-3 active:bg-raised [&::-webkit-details-marker]:hidden">
-          <b className="flex-1 text-[17px] font-semibold">{t(label)}</b>
-          <span className="text-[15px] text-muted-foreground">{rs.length}</span>
-          <Icon name="chevronRight" size={18} className="text-muted-foreground transition-transform group-open:rotate-90" />
-        </summary>
-        {rs.map(r => <button key={r.id} className="flex w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left active:bg-raised" onClick={() => start(r)}>
-          <span className="min-w-0 flex-1">
-            <b className="block truncate text-[16px] font-medium">{r.name}</b>
-            <span className="block truncate text-[12px] text-muted-foreground">{lastLine(r.ex.length, lastDone(S, r.id))}</span>
-          </span>
-          <span className="flex shrink-0 gap-1">{pics(S, r).slice(0, 3).map(id => <Thumb key={id} id={id} size={30} />)}</span>
-        </button>)}
-      </details>
-    })}
+    {/* the other days, each with its pictures small */}
+    {S.routines.length > (sug ? 1 : 0) && <>
+      <div className={H}>{t('Altre schede')}</div>
+      <section className="overflow-hidden rounded-2xl bg-card">{S.routines.filter(r => r !== sug).map(r => <button key={r.id} className="flex w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left first:border-t-0 active:bg-raised" onClick={() => start(r)}>
+        <span className="min-w-0 flex-1">
+          <b className="block truncate text-[16px] font-medium">{r.name}</b>
+          <span className="block truncate text-[12px] text-muted-foreground">{lastLine(r.ex.length, lastDone(S, r.id))}</span>
+        </span>
+        <span className="flex shrink-0 gap-1">{pics(S, r).slice(0, 3).map(id => <Thumb key={id} id={id} size={30} />)}</span>
+      </button>)}</section>
+    </>}
 
     <div className={H} />
     <section className="overflow-hidden rounded-2xl bg-card"><button className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-raised" onClick={() => start(null)}>

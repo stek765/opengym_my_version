@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { displayName, lastSession, measureOf, increaseOffer, finishSession } from '../lib/training.js'
+import { displayName, lastSession, measureOf, increaseOffer, finishSession, PHASES, phaseOf } from '../lib/training.js'
 import { setValue, toggleSet, addSet, skipEntry, addEntry, answerOffer, renameEntry, settle, openEntry, removeSet, replaceEntry, nextOpen } from '../lib/session.js'
 import { num } from '../lib/format.js'
 import { openNumber } from '../components/NumberSheet.jsx'
@@ -15,6 +15,8 @@ import MuscleTag from '../components/MuscleTag.jsx'
 import Icon from '../components/Icon.jsx'
 import Thumb from '../components/Thumb.jsx'
 import HowTo from '../components/HowTo.jsx'
+import ExerciseInfo from '../components/ExerciseInfo.jsx'
+import Phases, { PHASE_CHIP } from '../components/Phases.jsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { t } from '../lib/i18n.js'
@@ -40,7 +42,7 @@ function Name({ S, id, className }) {
 const VAL = 'flex h-12 min-w-0 flex-1 items-baseline justify-center gap-1 rounded-xl bg-foreground/10 pt-2.5 text-[21px] font-semibold tabular-nums transition-colors active:bg-foreground/20'
 const UNIT = 'text-[13px] font-medium text-muted-foreground'
 
-function OpenEntry({ S, e, upd, prev, next, finish }) {
+function OpenEntry({ S, e, upd, prev, next, nextPh, finish }) {
   const update = useStore(s => s.update)
   const startRest = useUI(s => s.startRest)
   const [hint, setHint] = useState('')
@@ -49,10 +51,12 @@ function OpenEntry({ S, e, upd, prev, next, finish }) {
   const measure = measureOf(S, e.id)
   const last = lastSession(S, e.id)
   const offer = e.offer === undefined ? increaseOffer(S, e.id) : null
-  const showW = measure !== 'reps' || e.sets.some(s => s.w > 0)
+  // a hold or a stretch counts seconds and has no weight unless one was put on
+  const showW = measure === 'kg' || e.sets.some(s => s.w > 0)
+  const unit = measure === 'sec' ? 's' : t('rip')
   const name = displayName(S, e.id)
   const edit = (i, field) => openNumber({
-    title: `${name} · ${t('serie')} ${i + 1} · ${t(field === 'w' ? 'peso' : 'ripetizioni')}`,
+    title: `${name} · ${t('serie')} ${i + 1} · ${t(field === 'w' ? 'peso' : measure === 'sec' ? 'secondi' : 'ripetizioni')}`,
     value: e.sets[i][field], field, later: e.sets.some((s, j) => j > i && !s.done),
     onDone: (v, later) => upd(a => setValue(a, e.id, i, field, v, later))
   })
@@ -64,7 +68,7 @@ function OpenEntry({ S, e, upd, prev, next, finish }) {
     else if (useUI.getState().timer?.over) useUI.getState().stopRest()
   }
   const swap = () => openPicker({
-    S,
+    S, chip: PHASE_CHIP[e.ph],
     onPick: id => upd(a => replaceEntry(S, a, e.id, id)),
     onCreate: n => {
       const id = newExercise(n, (from, to) => update(s => { if (s.active) s.active = renameEntry(s.active, from, to) }))
@@ -72,6 +76,7 @@ function OpenEntry({ S, e, upd, prev, next, finish }) {
     }
   })
   const allDone = e.sets.length > 0 && e.sets.every(s => s.done)
+  const info = () => useUI.getState().openSheet(() => <div className="-mx-5 max-h-[85vh] overflow-y-auto overscroll-contain px-5" data-nodrag><ExerciseInfo S={S} id={e.id} /></div>)
   const answer = inc => {
     upd(a => answerOffer(a, e.id, inc))
     if (inc) update(s => { s.incr = { ...s.incr, [e.id]: inc } })
@@ -87,6 +92,9 @@ function OpenEntry({ S, e, upd, prev, next, finish }) {
         <Name S={S} id={e.id} className="text-[20px] font-semibold leading-snug select-none" />
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <MuscleTag S={S} id={e.id} readOnly />
+          <button className="inline-flex h-6 items-center gap-1 text-[13px] font-medium text-tinta active:opacity-60" onClick={info}>
+            <Icon name="info" size={14} />{t('Descrizione')}
+          </button>
           {!hint && <button className="inline-flex h-6 items-center gap-1 text-[13px] font-medium text-tinta active:opacity-60" onClick={feel}>
             <Icon name="sparkles" size={14} />{t('Cosa sentire?')}
           </button>}
@@ -109,7 +117,7 @@ function OpenEntry({ S, e, upd, prev, next, finish }) {
         return <div key={i} className={'flex items-center gap-2 rounded-xl px-2 py-1 transition-colors duration-200' + (s.done ? ' bg-success/15' : '')}>
           <span className="w-6 shrink-0 text-center text-[15px] font-semibold tabular-nums text-muted-foreground">{i + 1}</span>
           {showW && <button className={VAL + trend(s.w, p?.w)} aria-label={t('peso')} onClick={() => edit(i, 'w')}>{num(s.w)}<small className={UNIT}>kg</small></button>}
-          <button className={VAL + trend(s.r, p?.r)} aria-label={t('ripetizioni')} onClick={() => edit(i, 'r')}>{s.r ?? '—'}<small className={UNIT}>{t('rip')}</small></button>
+          <button className={VAL + trend(s.r, p?.r)} aria-label={t('ripetizioni')} onClick={() => edit(i, 'r')}>{s.r ?? '—'}<small className={UNIT}>{unit}</small></button>
           <button className="flex size-12 shrink-0 items-center justify-center" aria-label={t(s.done ? 'Annulla serie' : 'Fatta')} onClick={() => tick(i)}>
             <span className={'flex size-10 items-center justify-center rounded-full transition-colors ' + (s.done ? 'bg-success text-primary-foreground' : 'border-2 border-foreground/30 text-transparent') + (s.done && popped === i ? ' animate-[pop_.24s_ease-out]' : '')}>
               <Icon name="check" size={20} strokeWidth={3} />
@@ -128,7 +136,7 @@ function OpenEntry({ S, e, upd, prev, next, finish }) {
       <Button variant="ghost" className="flex-1 px-1 text-muted-foreground" onClick={() => upd(a => skipEntry(a, e.id))}><Icon name="skip" size={16} />{t('Salta')}</Button>
     </div>
     {allDone && (next
-      ? <Button size="lg" className="mt-2 w-full justify-start duration-200 animate-in fade-in" onClick={() => upd(a => openEntry(a, next))}><Thumb id={next} size={28} className="rounded-md" /><span className="truncate">{t('Prossimo: {0}', displayName(S, next))}</span></Button>
+      ? <Button size="lg" className="mt-2 w-full justify-start duration-200 animate-in fade-in" onClick={() => upd(a => openEntry(a, next))}><Thumb id={next} size={28} className="rounded-md" /><span className="truncate">{nextPh ? t('Avanti: {0} · {1}', t(nextPh), displayName(S, next)) : t('Prossimo: {0}', displayName(S, next))}</span></Button>
       : <Button size="lg" className="mt-2 w-full duration-200 animate-in fade-in" onClick={finish}><Icon name="check" />{t('Fine allenamento')}</Button>)}
   </section>
 }
@@ -137,7 +145,7 @@ function summary(S, e) {
   const d = e.sets.filter(s => s.done)
   if (d.length && d.length === e.sets.length) return (measureOf(S, e.id) === 'kg' ? num(d[0].w) + ' × ' : '') + d.map(s => s.r).join(' ')
   const f = e.sets[0]
-  return `${e.sets.length} × ${f?.r ?? '—'}` + (f?.w ? ` · ${num(f.w)} kg` : '')
+  return `${e.sets.length} × ${f?.r ?? '—'}${measureOf(S, e.id) === 'sec' ? ' s' : ''}` + (f?.w ? ` · ${num(f.w)} kg` : '')
 }
 
 export default function Session() {
@@ -165,12 +173,28 @@ export default function Session() {
     // The coach comment is a bonus: a slow or failed coach never holds up the finish.
     useStore.getState().pushState().then(() => afterWorkout(w.id)).catch(() => {})
   }
+  // One phase on screen at a time: the one of the open exercise (the last, once all is done).
+  const phOf = e => e.ph || phaseOf(S, e)
+  const cur = A.entries.find(e => e.id === A.openId)
+  const view = cur ? phOf(cur) : (A.entries.length ? phOf(A.entries.at(-1)) : 'forza')
+  const complete = e => e.skipped || ('check' in e ? e.check : e.sets.length > 0 && e.sets.every(s => s.done))
+  const items = {}
+  for (const e of A.entries) { const it = items[phOf(e)] ||= { n: 0, left: 0 }; it.n++; if (!complete(e)) it.left++ }
+  for (const k in items) items[k].done = !items[k].left
+  // a tap on a phase opens its first exercise still to do, or its first one
+  const goPhase = p => {
+    const xs = A.entries.filter(e => phOf(e) === p)
+    const e = xs.find(x => !complete(x)) || xs[0]
+    if (e) upd(a => ({ ...openEntry(a, e.id), prevId: null }))   // a phase jump is not a detour to come back from
+    document.getElementById('app')?.scrollTo({ top: 0 })
+  }
+  const label = p => PHASES.find(x => x[0] === p)?.[1] || p
   const add = () => openPicker({
-    S,
-    onPick: id => upd(a => addEntry(S, a, id)),
+    S, chip: PHASE_CHIP[view],
+    onPick: id => upd(a => addEntry(S, a, id, view)),
     onCreate: name => {
       const id = newExercise(name, (from, to) => update(s => { if (s.active) s.active = renameEntry(s.active, from, to) }))
-      update(s => { s.active = addEntry(s, s.active, id) })
+      update(s => { s.active = addEntry(s, s.active, id, view) })
     }
   })
 
@@ -204,7 +228,7 @@ export default function Session() {
     </button>
   }
   const blocks = []
-  for (const e of A.entries) {
+  for (const e of A.entries.filter(x => phOf(x) === view)) {
     if (e.id === A.openId && !e.skipped) blocks.push(e)
     else if (Array.isArray(blocks.at(-1))) blocks.at(-1).push(e)
     else blocks.push([e])
@@ -230,6 +254,7 @@ export default function Session() {
         </div>
         <Button size="sm" className="mr-2 rounded-full px-4 text-[15px] font-semibold" onClick={end}>{t('Finish')}</Button>
       </div>
+      {Object.keys(items).length > 1 && <div className="px-4 pb-2"><Phases value={view} onChange={goPhase} items={items} hideEmpty /></div>}
       <div className="h-0.5 bg-border"><i className="block h-full origin-left bg-primary transition-transform duration-300" style={{ transform: `scaleX(${total ? done / total : 0})` }} /></div>
     </header>
     <div className="pt-4">
@@ -241,10 +266,11 @@ export default function Session() {
           <p className="mt-2 text-[15px] text-muted-foreground">{t('Si parte da qui. Quando hai finito, segnalo.')}</p>
           <Button size="lg" className="mt-4 w-full" onClick={() => upd(a => toggleSet(a, e.id))}><Icon name="check" />{t('Fatto')}</Button>
         </section>
-        return <OpenEntry key={e.id} S={S} e={e} upd={upd} next={nextOpen(A, e.id)} finish={finish} prev={A.prevId && A.prevId !== e.id && A.entries.some(x => x.id === A.prevId && !x.skipped && !('check' in x) && x.sets.some(t => !t.done)) ? A.prevId : null} />
+        const nx = nextOpen(A, e.id), nxE = nx && A.entries.find(x => x.id === nx)
+        return <OpenEntry key={e.id} S={S} e={e} upd={upd} next={nx} nextPh={nxE && phOf(nxE) !== view ? label(phOf(nxE)) : null} finish={finish} prev={A.prevId && A.prevId !== e.id && A.entries.some(x => x.id === A.prevId && !x.skipped && !('check' in x) && x.sets.some(t => !t.done)) ? A.prevId : null} />
       })}
       {/* dark like the cards: tinted (yellow on yellow) vanished into the workout background */}
-      <Button size="lg" className="w-full bg-card text-foreground hover:bg-card" onClick={add}><Icon name="plus" />{t('Aggiungi esercizio')}</Button>
+      <Button size="lg" className="w-full bg-card text-foreground hover:bg-card" onClick={add}><Icon name="plus" />{t('Aggiungi a {0}', t(label(view)))}</Button>
     </div>
   </div>
 }

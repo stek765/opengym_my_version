@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { suggestedRoutine, mainOf } from '../lib/training.js'
+import { suggestedRoutine, mainOf, phaseOf } from '../lib/training.js'
 import { ddmm, num, todayISO, isoOf } from '../lib/format.js'
 import { EXIDX } from '../lib/exercises.js'
 import { Clock } from './Session.jsx'
@@ -23,7 +23,8 @@ export const ago = iso => {
 // "5 esercizi · l'ultima volta ieri", or "· mai fatta" for a routine never done.
 export const nEsercizi = n => n === 1 ? t('1 esercizio') : t('{0} esercizi', n)
 export const lastLine = (n, iso) => nEsercizi(n) + ' · ' + (iso ? t("l'ultima volta {0}", ago(iso)) : t('mai fatta'))
-export const pics = (S, r) => (r?.ex || []).map(e => e.id).filter(id => EXIDX[id]?.img)
+// the strength exercises first: they are what tells one day from another
+export const pics = (S, r) => (r?.ex || []).filter(e => EXIDX[e.id]?.img).sort((a, b) => (phaseOf(S, b, r) === 'forza') - (phaseOf(S, a, r) === 'forza')).map(e => e.id)
 
 const H = 'px-1 pb-2 pt-6 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground'
 const CARD = 'overflow-hidden rounded-2xl bg-card'

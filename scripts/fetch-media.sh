@@ -1,11 +1,11 @@
 #!/bin/sh
-# Downloads the exercise pictures into media/img.
+# Downloads the exercise pictures into media/img and their animations into media/gif.
 # They are not in this repo: they belong to hasaneyldrm/exercises-dataset (see NOTICE.md).
 # Pinned to the commit the app's exercise list was built from. Safe to run again: existing files are skipped.
 set -e
 cd "$(dirname "$0")/.."
 DATASET=https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd
-mkdir -p media/img
+mkdir -p media/img media/gif
 # fe-* pictures come from yuhonas/free-exercise-db (Unlicense): fe-<id>.jpg = exercises/<id>/0.jpg
 FREEDB=https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5
 missing() { grep -o '"img":"[^"]*"' frontend/src/lib/exercises-data.js | cut -d'"' -f4 |
@@ -13,4 +13,8 @@ missing() { grep -o '"img":"[^"]*"' frontend/src/lib/exercises-data.js | cut -d'
 missing | grep -v '^fe-' | xargs -P 8 -I{} curl -fsS --retry 3 -o "media/img/{}" "$DATASET/images/{}"
 missing | grep '^fe-' | sed 's/^fe-\(.*\)\.jpg$/\1/' |
   xargs -P 8 -I{} curl -fsS --retry 3 -o "media/img/fe-{}.jpg" "$FREEDB/exercises/{}/0.jpg"
-echo "media/img: $(ls media/img | wc -l | tr -d ' ') pictures"
+# the animations: the dataset keeps them in videos/, same names as gif in the exercise list
+grep -o '"gif":"[^"]*"' frontend/src/lib/exercises-data.js | cut -d'"' -f4 |
+  while read -r f; do [ -s "media/gif/$f" ] || echo "$f"; done |
+  xargs -P 8 -I{} curl -fsS --retry 3 -o "media/gif/{}" "$DATASET/videos/{}"
+echo "media/img: $(ls media/img | wc -l | tr -d ' ') pictures, media/gif: $(ls media/gif | wc -l | tr -d ' ') animations"

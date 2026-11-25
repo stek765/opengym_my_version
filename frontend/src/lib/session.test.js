@@ -8,7 +8,7 @@ const r1 = () => ({ id: 'r1', name: 'Gambe + Spalle', ex: [{ id: 'c_riscaldament
 it('startSession builds entries from last time, warm-up as a check, and starts from the warm-up', () => {
   const a = startSession(S(), r1(), 1000)
   expect(a).toMatchObject({ routineId: 'r1', name: 'Gambe + Spalle', start: 1000, openId: 'c_riscaldamento' })
-  expect(a.entries[0]).toEqual({ id: 'c_riscaldamento', check: false, sets: [] })
+  expect(a.entries[0]).toEqual({ id: 'c_riscaldamento', ph: 'forza', check: false, sets: [] })
   expect(a.entries[2].sets).toEqual([{ w: 80, r: 9, done: false }, { w: 80, r: 8, done: false }])
 })
 
@@ -48,7 +48,7 @@ it('answerOffer adds the increase to every undone set and records it; "no" only 
 
 it('addEntry appends with last time\'s sets and opens it; adding twice does nothing', () => {
   let a = addEntry(S(), startSession(S(), r1(), 0), '0314')
-  expect(a.entries.at(-1)).toEqual({ id: '0314', sets: [{ w: 40, r: 6, done: false }, { w: 35, r: 8, done: false }, { w: 35, r: 5, done: false }] })
+  expect(a.entries.at(-1)).toEqual({ id: '0314', ph: 'forza', sets: [{ w: 40, r: 6, done: false }, { w: 35, r: 8, done: false }, { w: 35, r: 5, done: false }] })
   expect(a.openId).toBe('0314')
   expect(addEntry(S(), a, '0314').entries.length).toBe(a.entries.length)
 })
@@ -122,4 +122,14 @@ it('replaceEntry swaps in place; ticked sets stay logged on the old entry, new o
   expect(a.entries[2].sets).toEqual([{ w: 80, r: 9, done: true }])
   // already in the session: just open it
   expect(replaceEntry(S(), a, 'zz', '0739x')).toMatchObject({ openId: '0739x', entries: a.entries })
+})
+
+it('a day starts in phase order, and an added or swapped exercise stays in the phase on screen', () => {
+  const r = { id: 'd', name: 'Giorno', ex: [{ id: '0314', ph: 'forza' }, { id: 'rh-40', ph: 'stretch' }, { id: 'rh-20', ph: 'mob' }] }
+  let a = startSession(S(), r, 0)
+  expect(a.entries.map(e => [e.id, e.ph])).toEqual([['rh-20', 'mob'], ['0314', 'forza'], ['rh-40', 'stretch']])
+  a = addEntry(S(), a, 'rh-22', 'mob')
+  expect(a.entries.map(e => e.id)).toEqual(['rh-20', 'rh-22', '0314', 'rh-40'])
+  a = replaceEntry(S(), a, '0314', '0577')
+  expect(a.entries.find(e => e.id === '0577').ph).toBe('forza')
 })

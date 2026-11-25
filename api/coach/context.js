@@ -47,7 +47,8 @@ export function buildContext(S, today) {
     oggi: today,
     profilo: S.coach?.profile || null,
     // ids too: the coach edits a routine by its id and keeps an exercise by its id
-    schede: (S.routines || []).map(r => ({ id: r.id, nome: r.name, tipo: r.cat || (r.rec ? 'mob' : 'forza'), esercizi: (r.ex || []).map(e => ({ id: e.id, nome: nameOf(S, e.id), serie: e.sets, rip: e.reps })) })),
+    // a routine is a whole day; each exercise says its phase (old ones without: from the routine's old kind)
+    schede: (S.routines || []).map(r => ({ id: r.id, nome: r.name, esercizi: (r.ex || []).map(e => ({ id: e.id, nome: nameOf(S, e.id), fase: e.ph || (r.cat === 'stretch' ? 'stretch' : r.rec ? 'rin' : 'forza'), serie: e.sets, rip: e.reps })) })),
     esercizi,
     // ids so the coach can fix or delete one; the older ones only as a line each
     ultimiAllenamenti: (S.workouts || []).slice(-10).map(w => ({
