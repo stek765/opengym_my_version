@@ -76,7 +76,7 @@ function OpenEntry({ S, e, upd, prev, next, nextPh, finish }) {
     }
   })
   const allDone = e.sets.length > 0 && e.sets.every(s => s.done)
-  const info = () => useUI.getState().openSheet(() => <div className="-mx-5 max-h-[85vh] overflow-y-auto overscroll-contain px-5" data-nodrag><ExerciseInfo S={S} id={e.id} /></div>)
+  const info = () => useUI.getState().openSheet(() => <ExerciseInfo S={S} id={e.id} />)
   const answer = inc => {
     upd(a => answerOffer(a, e.id, inc))
     if (inc) update(s => { s.incr = { ...s.incr, [e.id]: inc } })

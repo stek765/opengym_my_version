@@ -51,7 +51,7 @@ function ExSheet({ rid, exId, mut, remove, close }) {
   if (!e) return null
   const check = (S.customEx || []).find(c => c.id === exId)?.kind === 'check'
   const ph = phaseOf(S, e, r)
-  return <div className="-mx-5 max-h-[85vh] overflow-y-auto overscroll-contain px-5" data-nodrag>
+  return <div>
     <ExerciseInfo S={S} id={exId} />
     {!check && <div className="mb-4 rounded-2xl bg-raised pb-2 pt-3">
       <div className="relative isolate flex items-center justify-center gap-2">

@@ -9,31 +9,38 @@ function Sheet({ sheet }) {
   const ref = useRef(null)
   const drag = useRef({ startY: null, delta: 0 })
 
+  // Swipe down closes the sheet, the way iOS does it: whatever scrolls under the finger scrolls
+  // first, and once it is at its top, the same pull carries on into closing (no second swipe).
+  // Only horizontal rows and wheels (data-nodrag) and sliders keep the gesture for themselves.
+  const scrollerOf = t => {
+    for (let n = t; n && n !== ref.current; n = n.parentElement)
+      if (n.scrollHeight > n.clientHeight && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n
+    return ref.current
+  }
   const onTouchStart = e => {
-    const el = ref.current
-    // a gesture that begins on a slider (or opted-out control) belongs to that control,
-    // not to the sheet's swipe-to-dismiss — so it keeps working while you drag
-    if (e.target.closest && e.target.closest('input[type=range], [data-nodrag]')) {
-      drag.current = { startY: null, delta: 0 }
-      return
-    }
-    drag.current = { startY: el.scrollTop <= 0 ? e.touches[0].clientY : null, delta: 0 }
+    const off = e.target.closest && e.target.closest('input[type=range], [data-nodrag]')
+    drag.current = { startY: null, delta: 0, off, lastY: e.touches[0].clientY, sc: off ? null : scrollerOf(e.target) }
   }
   const onTouchMove = e => {
     const el = ref.current, d = drag.current
+    if (d.off) return
+    const y = e.touches[0].clientY
+    const atTop = d.sc.scrollTop <= 0 && el.scrollTop <= 0
+    if (d.startY === null && y > d.lastY && atTop) d.startY = d.lastY   // from the last point, so this move already counts
+    d.lastY = y
     if (d.startY === null) return
-    d.delta = e.touches[0].clientY - d.startY
-    if (d.delta > 0 && el.scrollTop <= 0) {
+    d.delta = y - d.startY
+    if (d.delta > 0) {
       e.preventDefault()
       el.style.transition = 'none'
       el.style.transform = `translateY(${d.delta}px)`
-    } else d.delta = 0
+    } else { d.startY = null; d.delta = 0; el.style.transform = '' }   // back up: it scrolls again
   }
   const onTouchEnd = () => {
     const el = ref.current, d = drag.current
     if (d.startY === null) return
     el.style.transition = 'transform .2s'
-    if (d.delta > 90 && !sheet.locked) { el.style.transform = 'translateY(110%)'; setTimeout(() => closeSheet(sheet.id), 180) }
+    if (d.delta > 70 && !sheet.locked) { el.style.transform = 'translateY(110%)'; setTimeout(() => closeSheet(sheet.id), 180) }
     else el.style.transform = ''
     d.startY = null
   }
@@ -70,14 +77,18 @@ function Sheet({ sheet }) {
 export default function Modals() {
   const sheets = useUI(s => s.sheets)
 
-  // lock the page behind any open sheet (iOS-safe)
+  // lock the page behind any open sheet (iOS-safe). The band at the bottom that the installed app
+  // never draws shows the html background (the section colour, Fondo.jsx): under a sheet it takes the
+  // sheet's own colour, or it reads as a strip of the wrong colour under the last button.
   useEffect(() => {
     if (!sheets.length) return
     const y = window.scrollY || 0
-    const b = document.body.style
+    const b = document.body.style, h = document.documentElement.style, bg = h.background
     b.position = 'fixed'; b.top = -y + 'px'; b.left = '0'; b.right = '0'; b.width = '100%'
+    h.background = 'var(--popover)'
     return () => {
       b.position = b.top = b.left = b.right = b.width = ''
+      h.background = bg
       window.scrollTo(0, y)
     }
   }, [sheets.length > 0])

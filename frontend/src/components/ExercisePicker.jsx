@@ -20,7 +20,7 @@ const CHIPS = [...BPS.map(b => ['bp', b, b]), ...TYPES.map(([k, l]) => ['ty', k,
 
 // Tapping a row shows how it's done before adding it.
 function Preview({ S, id, added, add, close }) {
-  return <div className="-mx-5 max-h-[85vh] overflow-y-auto overscroll-contain px-5" data-nodrag>
+  return <div>
     <ExerciseInfo S={S} id={id} />
     <div className="sticky bottom-0 bg-popover pb-1 pt-2">
       <Button size="lg" className="w-full" disabled={added} onClick={() => { close(); add() }}><Icon name="plus" />{added ? t('Già aggiunto') : t('Aggiungi')}</Button>
@@ -80,7 +80,7 @@ function Picker({ S, onPick, onPickMany, onCreate, multi, has = [], chip = null,
       return <Button key={k + v} ref={on && first.current ? el => { if (el) { first.current = false; el.scrollIntoView({ inline: 'center', block: 'nearest' }) } } : undefined} size="sm" variant={on ? 'default' : 'secondary'} aria-pressed={on}
         className={'h-8 rounded-full px-3 text-[14px]' + (k === 'ty' && v === 'mob' ? ' ml-3' : '')} onClick={() => setF(on ? null : [k, v])}>{t(l)}</Button>
     })}</div>
-    <div className="-mx-5 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-border px-5 pb-4" data-nodrag>
+    <div className="-mx-5 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-border px-5 pb-4">
       {!list && recent.length > 0 && <div className="px-1 pb-1 pt-4 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{t('Fatti di recente')}</div>}
       <div>{(list ? list.map(e => e.id) : recent).map(row)}</div>
       {g && !list.length && <button onClick={create}

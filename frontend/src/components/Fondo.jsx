@@ -55,12 +55,17 @@ export default function Fondo({ sec }) {
     gl.uniform3fv(u('c1'), rgb(s.c1)); gl.uniform3fv(u('c2'), rgb(s.c2)); gl.uniform1f(u('fire'), s.fire); gl.uniform1f(u('glow'), s.glow || 0)
     let raf, last = 0
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches
+    // Still while anything scrolls: a full-screen blurred redraw every 50 ms fights the scroll on the
+    // phone (and the glass bars re-blur over it). It picks up again 200 ms after the scroll stops.
+    let quiet = 0
+    const scrolling = () => { quiet = performance.now() + 200 }
+    addEventListener('scroll', scrolling, { capture: true, passive: true })
     const draw = ms => {
-      if (ms - last > 50) { last = ms; gl.uniform2f(u('r'), cv.width, cv.height); gl.uniform1f(u('t'), 30 + ms / 1000); gl.drawArrays(gl.TRIANGLES, 0, 3) }
+      if (ms > quiet && ms - last > 50) { last = ms; gl.uniform2f(u('r'), cv.width, cv.height); gl.uniform1f(u('t'), 30 + ms / 1000); gl.drawArrays(gl.TRIANGLES, 0, 3) }
       if (!still) raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(raf); removeEventListener('resize', size) }
+    return () => { cancelAnimationFrame(raf); removeEventListener('resize', size); removeEventListener('scroll', scrolling, { capture: true }) }
   }, [sec])
   useLayoutEffect(() => {   // before the new screen's first paint
     const c = stripOf(sec), h = document.documentElement
