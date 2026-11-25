@@ -8,17 +8,18 @@
 <meta name="theme-color" content="#012439">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<!-- "black-translucent": the page runs under the clock like a normal app (21/11, his request). iOS then may
-     stop drawing the page --gap px above the bottom edge: that band shows the html background (--top, set with
-     the section), and the tab bar sits on it like an app's bottom bar (see --bot in index.css). -->
+<!-- "black-translucent": the page runs under the clock like a normal app (21/11, his request). iOS 26 then sizes
+     the viewport short by the status bar and leaves a band undrawn at the bottom (WebKit bug 301108): index.css
+     makes the document screen-tall in standalone, which gets the full viewport back. If it ever does not,
+     lib/viewport.js measures the band (--gap) and the tab bar sits on the lowest edge drawn.
+     The installed icon remembers this setting: changing it needs the icon removed and re-added. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="openGym">
 <!-- iOS paints the status strip from the first frame: after a reload on any screen it must already have that
      section's colour (stripOf() in components/Fondo.jsx) before React runs. -->
 <script>
 (function () {
-  var h = location.hash, c = h.indexOf('#/allenamento') === 0 ? '#4a3100' : h.indexOf('#/progressi') === 0 ? '#052321'
-    : (h.indexOf('#/coach') === 0 || h.indexOf('#/impostazioni') === 0) ? '#300511' : '#012439'
+  var h = location.hash, c = h.indexOf('#/allenamento') === 0 ? '#4a3100' : '#012439'
   document.documentElement.style.background = c
   document.documentElement.style.setProperty('--top', c)
   document.querySelector('meta[name="theme-color"]').setAttribute('content', c)

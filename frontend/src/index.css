@@ -69,17 +69,21 @@
   /* iOS safe areas and the bottom tab bar */
   --sat: env(safe-area-inset-top);
   --sab: env(safe-area-inset-bottom);
-  --gap: 0px;   /* set by lib/viewport.js */
-  /* room under the tab bar for the home indicator: the band iOS leaves undrawn (--gap) already covers it */
+  --gap: 0px;   /* bottom band iOS leaves undrawn, lib/viewport.js (0 with the opaque status bar) */
+  /* room under the tab bar for the home indicator; inside the undrawn band there is nothing to make room in */
   --bot: max(0px, calc(var(--sab) - var(--gap)));
   --kb: 0px;    /* keyboard height, set by lib/viewport.js */
-  --tab: 56px;
+  --tab: 50px;   /* like an iOS tab bar (49) */
   --top: #000000;   /* status bar strip colour (App.jsx copies it into theme-color) */
 }
 
 @layer base {
   * { @apply border-border outline-ring/50; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
+  /* iOS 26 (WebKit bug 301108): an installed app drawn under the clock gets a viewport short by the status
+     bar, and keeps it while the document is no taller than that, leaving the bottom band undrawn. A document
+     as tall as the whole screen gets the full viewport; once it has it this computes to 100% and does nothing. */
+  @media (display-mode: standalone) { html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top))); } }
   html { @apply font-sans bg-background; }
   body { @apply bg-background text-foreground antialiased; font-variant-numeric: tabular-nums; }
   button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }
@@ -115,8 +119,6 @@
   --success: #4ade80; --border: rgb(255 255 255 / .1); --input: rgb(255 255 255 / .15);
   --tinta: #7dd3fc;
 }
-:root[data-sec="esercizi"] { --tinta: #86efac; }
-:root[data-sec="coach"] { --tinta: #fca5a5; }
 html, body { background: #000; }
 body { background: transparent; }
 .chiara { --card: #fff; --raised: #f0f0f0; --foreground: #111; --muted-foreground: #6b6b6b; --border: rgb(0 0 0 / .08);

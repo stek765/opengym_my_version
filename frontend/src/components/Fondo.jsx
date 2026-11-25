@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
 // The background behind every screen: black, with soft blurred patches of the section's colour that drift
-// like water (Allenati light blue, Esercizi green; swapped 21/11) or rise like fire (Coach red, workout yellow). Chosen 21/11:
-// «nero con mix sfumati che si muovono, come acqua o fuoco, prevalenza nero».
+// like water (light blue, the whole app since 25/11: «e se tenessimo tutto azzurro?») or rise like fire (the
+// workout, yellow). Chosen 21/11: «nero con mix sfumati che si muovono, come acqua o fuoco, prevalenza nero».
+const AZZURRO = { c1: '#67d4ff', c2: '#0277bd', fire: 0 }
 const SEC = {
-  allenati: { c1: '#67d4ff', c2: '#0277bd', fire: 0 },
-  esercizi: { c1: '#4ade80', c2: '#0f766e', fire: 0 },
-  coach: { c1: '#ff5a3c', c2: '#9f1239', fire: 1 },
+  allenati: AZZURRO,
+  esercizi: AZZURRO,
+  coach: AZZURRO,
   allenamento: { c1: '#ffe14d', c2: '#f5a400', fire: 1, glow: 1 },   // brighter: «sfondo più giallo» (21/11)
 }
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)

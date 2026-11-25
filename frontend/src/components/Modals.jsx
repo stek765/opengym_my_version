@@ -77,18 +77,14 @@ function Sheet({ sheet }) {
 export default function Modals() {
   const sheets = useUI(s => s.sheets)
 
-  // lock the page behind any open sheet (iOS-safe). The band at the bottom that the installed app
-  // never draws shows the html background (the section colour, Fondo.jsx): under a sheet it takes the
-  // sheet's own colour, or it reads as a strip of the wrong colour under the last button.
+  // lock the page behind any open sheet (iOS-safe)
   useEffect(() => {
     if (!sheets.length) return
     const y = window.scrollY || 0
-    const b = document.body.style, h = document.documentElement.style, bg = h.background
+    const b = document.body.style
     b.position = 'fixed'; b.top = -y + 'px'; b.left = '0'; b.right = '0'; b.width = '100%'
-    h.background = 'var(--popover)'
     return () => {
       b.position = b.top = b.left = b.right = b.width = ''
-      h.background = bg
       window.scrollTo(0, y)
     }
   }, [sheets.length > 0])
