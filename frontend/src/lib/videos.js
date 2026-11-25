@@ -12,6 +12,9 @@ export const VIDEOS = {
   'rh-36': ['eRygfYEe1hs'], 'rh-37': ['_bCmHW_mLCU'], 'rh-28': ['Y-L0s5uSQ-E'], '0489': ['2pp8UJ6FOFM'],
   'rh-42': ['IAa-5uP7tSY'], 'rh-31': ['lqCqETr7Q0g'], 'rh-41': ['SSbRKbeoFCs'], 'fe-Kneeling_Hip_Flexor': ['vIDzsqJiAIo'],
   'rh-29': ['p24DLakBhYM'], 'fe-Childs_Pose': ['LZgABs0IggM'],
+  // added 25/11 with the day routines: mobility, strengthening and stretching for each day
+  'rh-23': ['Xm4HqmnkPXs'], 'rh-24': ['7CQc5JpyZso'], 'rh-30': ['hRMrq6G81p8'], 'rh-32': ['EfoutrDC5tY'],
+  'rh-43': ['apCJ4hcCS44'], 'fe-Band_Pull_Apart': ['bYsgk9SrJ48'], 'fe-Standing_Biceps_Stretch': ['QY4gCIYbGQk'],
   // knees and hips
   'rh-06': ['pQcvW08rnAk'], 'rh-01': ['Aq-QrVYZ-Vc'], 'rh-02': ['RG7z0P9qrLk'], 'rh-07': ['_r_vsI64pyw'],
   'rh-09': ['CU7Fn11YMTw'], 'rh-10': ['difh8uVDwSs'], 1373: ['zXPggo0INeM'], 'rh-03': ['p2xXd1fPh2A'],
